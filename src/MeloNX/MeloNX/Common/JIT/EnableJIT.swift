@@ -14,6 +14,7 @@ enum JITProvider: String, Identifiable, CaseIterable {
     case stikdebug = "StikDebug"
     case stikdebugLC = "StikDebug (LC)"
     case trollstore = "TrollStore"
+    case builtin = "Built-in (Candela)"
     
     var id: String { rawValue }
     
@@ -56,10 +57,28 @@ class EnableJIT {
         case .stikdebug, .stikdebugLC: enableJITStik()
         case .stosdebug, .stosdebugLC: enableJITStos()
         case .trollstore: enableJITTrollStore()
+        case .builtin: enableJITBuiltIn()
         default: break
         }
     }
     
+    /// Candela's own helper extension attaches to this process (needs a saved pairing file, see JIT setup).
+    private static func enableJITBuiltIn() {
+        guard let pairing = CandelaPairingStore.load() else {
+            NSLog("[jit-helper] no pairing file saved; open Settings > Built-in JIT setup")
+            return
+        }
+        let request = CandelaJITRequest(operation: .enable, pairingData: pairing, targetPID: getpid(), scriptBase64: builtInScript)
+        CandelaBuiltInJIT.send(request) { result in
+            if case .failure(let error) = result { NSLog("[jit-helper] %@", error.localizedDescription) }
+        }
+    }
+
+    /// Script for the built-in path: nil means StikJIT's universal script (TXM devices).
+    static var builtInScript: String? {
+        ProcessInfo.processInfo.hasTXM ? nil : script
+    }
+
     private static func enableJITStos() {
         let urlScheme: String = "stosdebug://enableJIT?bundleId=\(bundle)&appName=MeloNX&pid=\(getpid())"
         guard let launchURL = URL(string: urlScheme) else { return }
