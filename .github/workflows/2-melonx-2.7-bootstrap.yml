@@ -38,6 +38,28 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Rebuild verified LibHac alpha.129 source and run tests
+        run: |
+          set -euo pipefail
+          git clone https://starforgejo.dev/archive/LibHac_Ryubing.git /tmp/libhac
+          git -C /tmp/libhac checkout 23e402ebb6dedc517e34a98a033078dc0f6fd478
+          cd /tmp/libhac
+          dotnet run --project build/_build.csproj -- --target Codegen --configuration Release
+          dotnet pack src/LibHac/LibHac.csproj -c Release -p:PackageVersion=0.21.0-alpha.129 -o /tmp/libhac-feed
+          dotnet test tests/LibHac.Tests/LibHac.Tests.csproj -c Release --logger 'trx;LogFileName=libhac-tests.trx'
+          cd "$GITHUB_WORKSPACE"
+          python3 - <<'PYCODE'
+          import xml.etree.ElementTree as E
+          p='nuget.config'
+          t=E.parse(p)
+          for x in t.getroot().find('packageSources'):
+              if x.get('key')=='LibHacAlpha': x.set('value','/tmp/libhac-feed')
+          t.write(p,encoding='utf-8',xml_declaration=True)
+          PYCODE
+          echo 'LibHac alpha.129 rebuilt from 23e402ebb6dedc517e34a98a033078dc0f6fd478; official MeloNX 2.7 dylib embedded version confirms this source.' >> docs/melonx-2.7-integration.md
       - name: Publish .NET 10 native C# library
         run: |
           dotnet --info
@@ -63,6 +85,17 @@ jobs:
           if-no-files-found: error
       - name: Publish verified source to temporary sync branch
         run: |
+          git show 13700519f3abc4e6d7ed8a065b118b2cc59bcd67:nuget.config > nuget.config
+          git add docs/melonx-2.7-integration.md
+          git -c user.name=gavin02031 -c user.email=gavin02031@users.noreply.github.com commit --amend --no-edit
           git config http.postBuffer 524288000
           git config core.compression 1
           git push origin HEAD:sync/melonx-2.7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: LibHac-alpha129-verification
+          path: |
+            /tmp/libhac-feed/*.nupkg
+            /tmp/libhac/tests/LibHac.Tests/TestResults/*.trx
+          if-no-files-found: warn
