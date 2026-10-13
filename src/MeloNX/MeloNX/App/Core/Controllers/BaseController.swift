@@ -23,7 +23,7 @@ class BaseController: Equatable, Identifiable {
     
     var type: ControllerType
     var virtual: Bool = false
-    var name: String { virtual ? "MeloVertex Virtual Controller" : nativeController?.vendorName ?? "Unknown" }
+    var name: String { virtual ? "Candela Virtual Controller" : nativeController?.vendorName ?? "Unknown" }
     var nativeController: GCController?
     
     // Motion
