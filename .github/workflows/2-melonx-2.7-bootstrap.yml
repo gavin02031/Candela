@@ -18,7 +18,7 @@ jobs:
       - name: Apply pinned upstream source and Candela overlay
         run: |
           set -euo pipefail
-          cp 1-candela-overlay.patch.gz /tmp/candela-overlay.patch.gz
+          cp 1-1-candela-overlay.patch.gz /tmp/candela-overlay.patch.gz
           cp README.md /tmp/Candela-README.md
           cp -R .github /tmp/Candela-github
           cp .github/workflows/2-melonx-2.7-bootstrap.yml /tmp/melonx-2.7-bootstrap.yml
@@ -30,7 +30,7 @@ jobs:
           rm -rf .github
           cp -R /tmp/Candela-github .github
           cp /tmp/Candela-README.md README.md
-          cp /tmp/candela-overlay.patch.gz 1-candela-overlay.patch.gz
+          cp /tmp/candela-overlay.patch.gz 1-1-candela-overlay.patch.gz
           git add -A
           git -c user.name='gavin02031' -c user.email='gavin02031@users.noreply.github.com' commit -m 'Sync pinned MeloNX 2.7 source and preserve Candela frontend, presets and identity'
       - name: Select Xcode 26.3
@@ -75,13 +75,19 @@ jobs:
           APP=$(find build/Build/Products -maxdepth 2 -name 'MeloNX.app' -type d | head -n 1)
           test -n "$APP"
           test -d "$APP/PlugIns/MeloNXRamDonor.appex"
+          find "$APP" -iname "*AppIcon*" -o -name Assets.car
+          xcrun --sdk iphoneos assetutil --info "$APP/Assets.car" > icon-assets.json
+          cp "$APP/Assets.car" icon-Assets.car
           mkdir -p Payload
           cp -R "$APP" Payload/
           zip -qry Candela-2.7-unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
           name: Candela-2.7-unsigned-ipa
-          path: Candela-2.7-unsigned.ipa
+          path: |
+            Candela-2.7-unsigned.ipa
+            icon-assets.json
+            icon-Assets.car
           if-no-files-found: error
       - name: Publish verified source to temporary sync branch
         run: |
