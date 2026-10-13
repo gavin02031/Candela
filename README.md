@@ -54,7 +54,7 @@ Swift 6.2.4 crashes optimizing the synthesized generic `Setting` destructor; a l
 
 ## Credits and licenses
 
-- The upstream project linked above and its contributors: iOS platform, frontend, controller, RAM-offload and graphics work.
+- MeloNX: iOS platform, frontend, controller, RAM-offload and graphics work.
 - Ryujinx and its contributors: emulation core.
 - [MeloVertex](https://github.com/VertexSelection/MeloVertex): the fork Candela started from.
 - Third-party notices remain in the source and distribution documentation.
