@@ -950,7 +950,7 @@
 				GCC_OPTIMIZATION_LEVEL = z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MeloNX/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MeloVertex;
+				INFOPLIST_KEY_CFBundleDisplayName = Candela;
 				INFOPLIST_KEY_GCSupportsControllerUserInteraction = YES;
 				INFOPLIST_KEY_GCSupportsGameMode = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
@@ -2040,7 +2040,7 @@
 				GCC_OPTIMIZATION_LEVEL = z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MeloNX/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MeloVertex;
+				INFOPLIST_KEY_CFBundleDisplayName = Candela;
 				INFOPLIST_KEY_GCSupportsControllerUserInteraction = YES;
 				INFOPLIST_KEY_GCSupportsGameMode = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
@@ -2928,7 +2928,7 @@
 				GCC_OPTIMIZATION_LEVEL = z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MeloNX/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MeloVertex;
+				INFOPLIST_KEY_CFBundleDisplayName = Candela;
 				INFOPLIST_KEY_GCSupportsControllerUserInteraction = YES;
 				INFOPLIST_KEY_GCSupportsGameMode = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
