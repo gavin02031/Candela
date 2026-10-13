@@ -41,6 +41,20 @@ jobs:
           dotnet restore
           dotnet publish -c Release -r ios-arm64 -p:ExtraDefineConstants=DISABLE_UPDATER src/Ryujinx.Headless.SDL2 --self-contained true
 
+      - name: Stage C# dylib and check exports
+        run: |
+          B=src/Ryujinx.Headless.SDL2/bin/Release/net8.0/ios-arm64
+          ls -la $B/publish | head -40
+          ls -la $B/native || true
+          SRC=$B/publish/Ryujinx.Headless.SDL2.dylib
+          test -f "$SRC" || SRC=$B/native/Ryujinx.Headless.SDL2.dylib
+          test -f "$SRC"
+          file "$SRC"
+          mkdir -p "src/MeloNX/MeloNX/Dependencies/Dynamic Libraries"
+          cp "$SRC" "src/MeloNX/MeloNX/Dependencies/Dynamic Libraries/Ryujinx.Headless.SDL2.dylib"
+          nm -gU "$SRC" | grep -E 'attach_gamepad|close_user|create_account' || echo 'EXPORTS MISSING'
+          nm -gU "$SRC" | wc -l
+
       - name: Build app with xcodebuild (no signing)
         run: |
           xcodebuild \
