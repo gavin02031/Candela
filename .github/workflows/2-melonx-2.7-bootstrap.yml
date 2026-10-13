@@ -19,14 +19,18 @@ jobs:
         run: |
           set -euo pipefail
           cp 1-candela-overlay.patch.gz /tmp/candela-overlay.patch.gz
+          cp README.md /tmp/Candela-README.md
+          cp -R .github /tmp/Candela-github
           cp .github/workflows/2-melonx-2.7-bootstrap.yml /tmp/melonx-2.7-bootstrap.yml
           git fetch https://starforgejo.dev/projects/MeloNX.git refs/tags/2.7
           UPSTREAM=$(git rev-parse FETCH_HEAD^{commit})
           test "$UPSTREAM" = 13700519f3abc4e6d7ed8a065b118b2cc59bcd67
           git read-tree --reset -u "$UPSTREAM"
           gunzip -c /tmp/candela-overlay.patch.gz | git apply --binary --index
-          cp /tmp/melonx-2.7-bootstrap.yml .github/workflows/2-melonx-2.7-bootstrap.yml
-          cp /tmp/candela-overlay.patch.gz candela-overlay.patch.gz
+          rm -rf .github
+          cp -R /tmp/Candela-github .github
+          cp /tmp/Candela-README.md README.md
+          cp /tmp/candela-overlay.patch.gz 1-candela-overlay.patch.gz
           git add -A
           git -c user.name='gavin02031' -c user.email='gavin02031@users.noreply.github.com' commit -m 'Sync pinned MeloNX 2.7 source and preserve Candela frontend, presets and identity'
           git push origin HEAD:sync/melonx-2.7
