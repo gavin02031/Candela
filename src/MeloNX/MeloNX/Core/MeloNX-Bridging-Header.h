@@ -80,4 +80,6 @@ uint8_t offer_donated_gpu_memory(void* baseAddress, uint64_t size);
 uint8_t withdraw_donated_gpu_memory(void);
 uint64_t execute_guest_function_pointer(void* functionPtr, void* nativeContextPtr);
 
+#include "CandelaRPPairing.h"
+
 #endif /* MeloNX_BridgingHeader_h */
