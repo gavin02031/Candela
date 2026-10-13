@@ -64,7 +64,7 @@ struct WelcomeView: View {
                         finish()
                     }
                 
-                Text("Welcome to MeloNX")
+                Text("Welcome to Candela")
                     .font(.title)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
@@ -160,7 +160,7 @@ struct WelcomeView: View {
                     finish()
                 }
             
-            Text("Welcome to MeloNX" + versionNumber)
+            Text("Welcome to Candela" + versionNumber)
                 .font(.title)
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
