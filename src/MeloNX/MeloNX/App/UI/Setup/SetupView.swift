@@ -31,7 +31,7 @@ struct SetupView: View {
         keysImported && firmImported && !isInstallingFirmware
     }
     
-    let cool: LocalizedStringKey = "MeloVertex has issues with Certificates and should not be used."
+    let cool: LocalizedStringKey = "Candela has issues with Certificates and should not be used."
     
     var body: some View {
         Group {
@@ -156,7 +156,7 @@ struct SetupView: View {
                                     }
                                 }
                             
-                            Text("Welcome to MeloVertex")
+                            Text("Welcome to Candela")
                                 .font(.title)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
@@ -302,7 +302,7 @@ struct SetupView: View {
                                 }
                             }
                         
-                        Text("Welcome to MeloVertex!")
+                        Text("Welcome to Candela!")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                             .foregroundColor(.primary)
@@ -521,7 +521,7 @@ struct SetupView: View {
         refreshSetupStatus()
         
         if !firmImported {
-            presentErrorModal("Firmware installation is taking longer than expected. Please keep MeloVertex open and try again in a few minutes.")
+            presentErrorModal("Firmware installation is taking longer than expected. Please keep Candela open and try again in a few minutes.")
         }
     }
     
