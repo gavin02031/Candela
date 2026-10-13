@@ -55,11 +55,11 @@ jobs:
           rm -rf Payload
           mkdir Payload
           cp -R "$APP" Payload/
-          zip -qry MeloVertex-unsigned.ipa Payload
-          ls -lh MeloVertex-unsigned.ipa
+          zip -qry Candela-unsigned.ipa Payload
+          ls -lh Candela-unsigned.ipa
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MeloVertex-unsigned-ipa
-          path: MeloVertex-unsigned.ipa
+          name: Candela-unsigned-ipa
+          path: Candela-unsigned.ipa
           if-no-files-found: error
