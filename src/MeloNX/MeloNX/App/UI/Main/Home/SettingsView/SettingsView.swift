@@ -1142,6 +1142,8 @@ struct SettingsViewNew: View {
                 }
                 
                 Divider()
+                CandelaHomeToggleRow()
+                Divider()
                 SettingsToggle(isOn: nativeSettingsManager.checkForUpdate(true).projectedValue, icon: "square.and.arrow.down", label: "Check for Updates", infoMessage: "Check for Updates on Launch")
                 Divider()
                 
