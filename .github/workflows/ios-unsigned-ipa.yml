@@ -1,0 +1,65 @@
+name: Build unsigned iOS IPA
+
+# Manual only. Run it from the Actions tab: "Build unsigned iOS IPA" > Run workflow.
+on:
+  workflow_dispatch:
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+
+jobs:
+  ipa:
+    name: Build unsigned IPA
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Show toolchain
+        run: |
+          dotnet --info
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      # Same command as distribution/ios/xc-compile.sh. The Xcode "ShellScript" build
+      # phase then moves the published dylib into Dependencies/Dynamic Libraries.
+      - name: Publish C# core for ios-arm64
+        run: |
+          dotnet restore
+          dotnet publish -c Release -r ios-arm64 -p:ExtraDefineConstants=DISABLE_UPDATER src/Ryujinx.Headless.SDL2 --self-contained true
+
+      - name: Build app with xcodebuild (no signing)
+        run: |
+          xcodebuild \
+            -project src/MeloNX/MeloNX.xcodeproj \
+            -scheme MeloNX \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          APP=$(find build/Build/Products -maxdepth 2 -name '*.app' -type d | head -n 1)
+          echo "App bundle: $APP"
+          test -n "$APP"
+          rm -rf Payload
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry MeloVertex-unsigned.ipa Payload
+          ls -lh MeloVertex-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MeloVertex-unsigned-ipa
+          path: MeloVertex-unsigned.ipa
+          if-no-files-found: error
