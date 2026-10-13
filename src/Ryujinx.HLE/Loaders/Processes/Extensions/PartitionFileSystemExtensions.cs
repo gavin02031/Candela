@@ -15,7 +15,7 @@ using Ryujinx.HLE.FileSystem;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Globalization;
+using System.Linq;
 using ContentType = LibHac.Ncm.ContentType;
 
 namespace Ryujinx.HLE.Loaders.Processes.Extensions
@@ -24,14 +24,12 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
     {
         private static readonly DownloadableContentJsonSerializerContext _contentSerializerContext = new(JsonHelper.GetDefaultSerializerOptions());
 
-        private static readonly TitleUpdateMetadataJsonSerializerContext _titleSerializerContext = new(JsonHelper.GetDefaultSerializerOptions());
-
         public static Dictionary<ulong, ContentMetaData> GetContentData(this IFileSystem partitionFileSystem,
             ContentMetaType contentType, VirtualFileSystem fileSystem, IntegrityCheckLevel checkLevel)
         {
             fileSystem.ImportTickets(partitionFileSystem);
 
-            var programs = new Dictionary<ulong, ContentMetaData>();
+            Dictionary<ulong, ContentMetaData> programs = new();
 
             foreach (DirectoryEntryEx fileEntry in partitionFileSystem.EnumerateEntries("/", "*.cnmt.nca"))
             {
@@ -105,12 +103,20 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
                     return (false, ProcessResult.Failed);
                 }
 
-                // Load Update NCAs.
-                (Nca updatePatchNca, Nca updateControlNca) = mainNca.GetUpdateData(device.FileSystem, device.System.FsIntegrityCheckLevel, device.Configuration.UserChannelPersistence.Index, out string _);
+                (Nca updatePatchNca, Nca updateControlNca) = mainNca.GetUpdateData(device.FileSystem, device.System.FsIntegrityCheckLevel, device.Configuration.UserChannelPersistence.Index, out string updatePath);
 
                 if (updatePatchNca != null)
                 {
                     patchNca = updatePatchNca;
+                    if (updatePath != null) 
+                        Logger.Notice.PrintMsg(LogClass.Application, $"Loading update NCA from '{updatePath}'.");
+                }
+                else if (TryGetBundledUpdateData(partitionFileSystem, device, mainNca.ProgramIdBase, out Nca bundledPatchNca, out Nca bundledControlNca))
+                {
+                    patchNca = bundledPatchNca;
+                    updateControlNca = bundledControlNca;
+
+                    Logger.Notice.PrintMsg(LogClass.Application, $"Loading bundled update NCA from '{path}'.");
                 }
 
                 if (updateControlNca != null)
@@ -122,28 +128,32 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
                 device.Configuration.ContentManager.ClearAocData();
 
                 // Load DownloadableContents.
-                string addOnContentMetadataPath = System.IO.Path.Combine(AppDataManager.GamesDirPath, mainNca.GetProgramIdBase().ToString("x16"), "dlc.json");
+                string addOnContentMetadataPath = System.IO.Path.Combine(AppDataManager.GamesDirPath, mainNca.ProgramIdBase.ToString("x16"), "dlc.json");
                 if (File.Exists(addOnContentMetadataPath))
                 {
                     List<DownloadableContentContainer> dlcContainerList = JsonHelper.DeserializeFromFile(addOnContentMetadataPath, _contentSerializerContext.ListDownloadableContentContainer);
 
                     foreach (DownloadableContentContainer downloadableContentContainer in dlcContainerList)
                     {
+                        string containerPath = ResolveDlcContainerPath(downloadableContentContainer.ContainerPath);
+
+                        if (!File.Exists(containerPath))
+                        {
+                            Logger.Warning?.Print(LogClass.Application, $"Cannot find AddOnContent file {downloadableContentContainer.ContainerPath}. It may have been moved or renamed.");
+                            continue;
+                        }
+
                         foreach (DownloadableContentNca downloadableContentNca in downloadableContentContainer.DownloadableContentNcaList)
                         {
-                            string dlcPath = PlatformRelative(downloadableContentContainer.ContainerPath);
-
-                            if (File.Exists(dlcPath) && downloadableContentNca.Enabled)
+                            if (downloadableContentNca.Enabled)
                             {
-                                device.Configuration.ContentManager.AddAocItem(downloadableContentNca.TitleId, dlcPath, downloadableContentNca.FullPath);
-                            }
-                            else
-                            {
-                                Logger.Warning?.Print(LogClass.Application, $"Cannot find AddOnContent file {dlcPath}. It may have been moved or renamed.");
+                                device.Configuration.ContentManager.AddAocItem(downloadableContentNca.TitleId, containerPath, downloadableContentNca.FullPath);
                             }
                         }
                     }
                 }
+
+                LoadBundledDownloadableContents(partitionFileSystem, device, path, mainNca.ProgramIdBase);
 
                 return (true, mainNca.Load(device, patchNca, controlNca));
             }
@@ -153,32 +163,92 @@ namespace Ryujinx.HLE.Loaders.Processes.Extensions
             return (false, ProcessResult.Failed);
         }
 
-        private static string PlatformRelative(string path)
+        private static bool TryGetBundledUpdateData<TMetaData, TFormat, THeader, TEntry>(
+            PartitionFileSystemCore<TMetaData, TFormat, THeader, TEntry> partitionFileSystem,
+            Switch device,
+            ulong titleIdBase,
+            out Nca patchNca,
+            out Nca controlNca)
+            where TMetaData : PartitionFileSystemMetaCore<TFormat, THeader, TEntry>, new()
+            where TFormat : IPartitionFileSystemFormat
+            where THeader : unmanaged, IPartitionFileSystemHeader
+            where TEntry : unmanaged, IPartitionFileSystemEntry
         {
-            if (OperatingSystem.IsIOS() && !File.Exists(path))
+            patchNca = null;
+            controlNca = null;
+
+            ContentMetaData newestUpdate = null;
+
+            foreach ((ulong applicationTitleId, ContentMetaData content) in partitionFileSystem.GetContentData(ContentMetaType.Patch, device.FileSystem, device.System.FsIntegrityCheckLevel))
             {
-                path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), path);
+                if ((applicationTitleId & ~0x1FFFUL) != titleIdBase)
+                {
+                    continue;
+                }
+
+                if (newestUpdate == null || content.Version.Version > newestUpdate.Version.Version)
+                {
+                    newestUpdate = content;
+                }
             }
 
-            return path;
+            if (newestUpdate == null)
+            {
+                return false;
+            }
+
+            patchNca = newestUpdate.GetNcaByType(device.FileSystem.KeySet, ContentType.Program, device.Configuration.UserChannelPersistence.Index);
+            controlNca = newestUpdate.GetNcaByType(device.FileSystem.KeySet, ContentType.Control, device.Configuration.UserChannelPersistence.Index);
+
+            return patchNca != null;
         }
 
-        public static Nca GetNca(this IFileSystem fileSystem, Switch device, string path)
+        private static void LoadBundledDownloadableContents<TMetaData, TFormat, THeader, TEntry>(
+            PartitionFileSystemCore<TMetaData, TFormat, THeader, TEntry> partitionFileSystem,
+            Switch device,
+            string path,
+            ulong titleIdBase)
+            where TMetaData : PartitionFileSystemMetaCore<TFormat, THeader, TEntry>, new()
+            where TFormat : IPartitionFileSystemFormat
+            where THeader : unmanaged, IPartitionFileSystemHeader
+            where TEntry : unmanaged, IPartitionFileSystemEntry
         {
-            using var ncaFile = new UniqueRef<IFile>();
+            HashSet<ulong> loadedAocTitleIds = device.Configuration.ContentManager.GetAocTitleIds().ToHashSet();
 
-            fileSystem.OpenFile(ref ncaFile.Ref, path.ToU8Span(), OpenMode.Read).ThrowIfFailure();
+            foreach (DirectoryEntryEx fileEntry in partitionFileSystem.EnumerateEntries("/", "*.nca"))
+            {
+                using UniqueRef<IFile> ncaFile = new();
 
-            return new Nca(device.Configuration.VirtualFileSystem.KeySet, ncaFile.Release().AsStorage());
+                try
+                {
+                    partitionFileSystem.OpenFile(ref ncaFile.Ref, fileEntry.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
+
+                    Nca nca = new(device.FileSystem.KeySet, ncaFile.Get.AsStorage());
+
+                    if (nca.Header.ContentType != NcaContentType.PublicData ||
+                        (nca.Header.TitleId & ~0x1FFFUL) != titleIdBase ||
+                        !loadedAocTitleIds.Add(nca.Header.TitleId))
+                    {
+                        continue;
+                    }
+
+                    device.Configuration.ContentManager.AddAocItem(nca.Header.TitleId, path, fileEntry.FullPath);
+                }
+                catch (Exception exception)
+                {
+                    Logger.Warning?.Print(LogClass.Application, $"Failed to load bundled AddOnContent '{fileEntry.FullPath}' from '{path}': {exception.Message}");
+                }
+            }
         }
 
-        public static Nca GetNca(this IFileSystem fileSystem, KeySet keySet, string path)
+        private static string ResolveDlcContainerPath(string containerPath)
         {
-            using var ncaFile = new UniqueRef<IFile>();
+            if (string.IsNullOrWhiteSpace(containerPath) || File.Exists(containerPath) || System.IO.Path.IsPathRooted(containerPath))
+            {
+                return containerPath;
+            }
 
-            fileSystem.OpenFile(ref ncaFile.Ref, path.ToU8Span(), OpenMode.Read).ThrowIfFailure();
-
-            return new Nca(keySet, ncaFile.Release().AsStorage());
+            return System.IO.Path.Combine(AppDataManager.BaseDirPath, containerPath);
         }
     }
 }

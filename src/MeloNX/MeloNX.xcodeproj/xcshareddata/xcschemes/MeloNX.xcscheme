@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1620"
-   version = "2.0">
+   LastUpgradeVersion = "2620"
+   version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
@@ -15,7 +15,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4E80A98C2CD6F54500029585"
+               BlueprintIdentifier = "4ED5D50A2F80DD02007DB057"
                BuildableName = "MeloNX.app"
                BlueprintName = "MeloNX"
                ReferencedContainer = "container:MeloNX.xcodeproj">
@@ -29,59 +29,43 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
-      <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4E80A99C2CD6F54700029585"
-               BuildableName = "MeloNXTests.xctest"
-               BlueprintName = "MeloNXTests"
-               ReferencedContainer = "container:MeloNX.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4E80A9A62CD6F54700029585"
-               BuildableName = "MeloNXUITests.xctest"
-               BlueprintName = "MeloNXUITests"
-               ReferencedContainer = "container:MeloNX.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
    </TestAction>
    <LaunchAction
-      buildConfiguration = "Debug"
+      buildConfiguration = "Release"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      disableMainThreadChecker = "YES"
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
-      debugXPCServices = "NO"
       debugServiceExtension = "internal"
-      enableGPUFrameCaptureMode = "3"
-      enableGPUValidationMode = "1"
+      showGraphicsOverview = "Yes"
       allowLocationSimulation = "YES"
-      queueDebuggingEnabled = "No"
       consoleMode = "0"
-      structuredConsoleMode = "2"
-      disablePerformanceAntipatternChecker = "YES">
+      structuredConsoleMode = "1">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4E80A98C2CD6F54500029585"
+            BlueprintIdentifier = "4ED5D50A2F80DD02007DB057"
             BuildableName = "MeloNX.app"
             BlueprintName = "MeloNX"
             ReferencedContainer = "container:MeloNX.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable key = "MTL_SHADER_VALIDATION" value = "0" isEnabled = "YES"/>
+      </EnvironmentVariables>
+      <AdditionalOptions>
+         <AdditionalOption
+            key = "APP_DISTRIBUTOR_ID_OVERRIDE"
+            value = "com.apple.AppStore"
+            isEnabled = "YES">
+         </AdditionalOption>
+      </AdditionalOptions>
+      <MetalShaderValidationSettings
+         isEnabled = "No">
+      </MetalShaderValidationSettings>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -93,7 +77,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4E80A98C2CD6F54500029585"
+            BlueprintIdentifier = "4ED5D50A2F80DD02007DB057"
             BuildableName = "MeloNX.app"
             BlueprintName = "MeloNX"
             ReferencedContainer = "container:MeloNX.xcodeproj">
@@ -104,26 +88,7 @@
       buildConfiguration = "Debug">
    </AnalyzeAction>
    <ArchiveAction
-      buildConfiguration = "Archive"
+      buildConfiguration = "Release"
       revealArchiveInOrganizer = "YES">
-      <PreActions>
-         <ExecutionAction
-            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
-            <ActionContent
-               title = "Run Script"
-               scriptText = "REPO_DIR=&quot;$(cd &quot;${SRCROOT}/../../&quot; &amp;&amp; pwd)&quot;&#10;SCRIPT_PATH=&quot;$REPO_DIR/distribution/ios/set_current_version.sh&quot;&#10;&#10;echo &quot;hi&quot;&#10;&#10;sh &quot;${SCRIPT_PATH}&quot;&#10;"
-               shellToInvoke = "/bin/bash">
-               <EnvironmentBuildable>
-                  <BuildableReference
-                     BuildableIdentifier = "primary"
-                     BlueprintIdentifier = "4E80A98C2CD6F54500029585"
-                     BuildableName = "MeloNX.app"
-                     BlueprintName = "MeloNX"
-                     ReferencedContainer = "container:MeloNX.xcodeproj">
-                  </BuildableReference>
-               </EnvironmentBuildable>
-            </ActionContent>
-         </ExecutionAction>
-      </PreActions>
    </ArchiveAction>
 </Scheme>

@@ -16,7 +16,6 @@ using Ryujinx.Memory;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.Reflection;
 
 namespace Ryujinx.HLE.HOS.Services.Nv
 {
@@ -34,18 +33,18 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
         private static readonly Dictionary<string, Func<ServiceCtx, IVirtualMemoryManager, ulong, NvDeviceFile>> _deviceFileRegistry = new()
         {
-            { "/dev/nvmap",           (ctx, mem, owner) => new NvMapDeviceFile(ctx, mem, owner)         },
-            { "/dev/nvhost-ctrl",     (ctx, mem, owner) => new NvHostCtrlDeviceFile(ctx, mem, owner)    },
-            { "/dev/nvhost-ctrl-gpu", (ctx, mem, owner) => new NvHostCtrlGpuDeviceFile(ctx, mem, owner) },
-            { "/dev/nvhost-as-gpu",   (ctx, mem, owner) => new NvHostAsGpuDeviceFile(ctx, mem, owner)   },
-            { "/dev/nvhost-gpu",      (ctx, mem, owner) => new NvHostGpuDeviceFile(ctx, mem, owner)     },
-            //{ "/dev/nvhost-msenc",    (ctx, mem, owner) => new NvHostChannelDeviceFile(ctx, mem, owner) },
-            { "/dev/nvhost-nvdec",    (ctx, mem, owner) => new NvHostChannelDeviceFile(ctx, mem, owner) },
-            //{ "/dev/nvhost-nvjpg",    (ctx, mem, owner) => new NvHostChannelDeviceFile(ctx, mem, owner) },
-            { "/dev/nvhost-vic",      (ctx, mem, owner) => new NvHostChannelDeviceFile(ctx, mem, owner) },
-            //{ "/dev/nvhost-display",  (ctx, mem, owner) => new NvHostChannelDeviceFile(ctx, mem, owner) },
-            { "/dev/nvhost-dbg-gpu",  (ctx, mem, owner) => new NvHostDbgGpuDeviceFile(ctx, mem, owner)  },
-            { "/dev/nvhost-prof-gpu", (ctx, mem, owner) => new NvHostProfGpuDeviceFile(ctx, mem, owner) },
+            { "/dev/nvmap",           (c, m, o) => new NvMapDeviceFile(c, m, o)         },
+            { "/dev/nvhost-ctrl",     (c, m, o) => new NvHostCtrlDeviceFile(c, m, o)    },
+            { "/dev/nvhost-ctrl-gpu", (c, m, o) => new NvHostCtrlGpuDeviceFile(c, m, o) },
+            { "/dev/nvhost-as-gpu",   (c, m, o) => new NvHostAsGpuDeviceFile(c, m, o)   },
+            { "/dev/nvhost-gpu",      (c, m, o) => new NvHostGpuDeviceFile(c, m, o)     },
+            //{ "/dev/nvhost-msenc",    (c, m, o) => new NvHostChannelDeviceFile(c, m, o) },
+            { "/dev/nvhost-nvdec",    (c, m, o) => new NvHostChannelDeviceFile(c, m, o) },
+            //{ "/dev/nvhost-nvjpg",    (c, m, o) => new NvHostChannelDeviceFile(c, m, o) },
+            { "/dev/nvhost-vic",      (c, m, o) => new NvHostChannelDeviceFile(c, m, o) },
+            //{ "/dev/nvhost-display",  (c, m, o) => new NvHostChannelDeviceFile(c, m, o) },
+            { "/dev/nvhost-dbg-gpu",  (c, m, o) => new NvHostDbgGpuDeviceFile(c, m, o)  },
+            { "/dev/nvhost-prof-gpu", (c, m, o) => new NvHostProfGpuDeviceFile(c, m, o) },
         };
         
         private static readonly ArrayPool<byte> _byteArrayPool = ArrayPool<byte>.Create();
@@ -59,6 +58,10 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
         // TODO: This should call set:sys::GetDebugModeFlag
         private readonly bool _debugModeEnabled = false;
+        
+        private byte[] _ioctl2Buffer = [];
+        private byte[] _ioctlArgumentBuffer = [];
+        private byte[] _ioctl3Buffer = [];
 
         public INvDrvServices(ServiceCtx context) : base(context.Device.System.NvDrvServer)
         {
@@ -123,29 +126,40 @@ namespace Ryujinx.HLE.HOS.Services.Nv
                     return NvResult.InvalidSize;
                 }
 
-                byte[] outputData = new byte[outputDataSize];
+                if (!context.Memory.TryReadUnsafe(inputDataPosition, (int)inputDataSize, out arguments))
+                {
+                    if (_ioctlArgumentBuffer.Length < (int)inputDataSize)
+                    {
+                        Array.Resize(ref _ioctlArgumentBuffer, (int)inputDataSize);
+                    }
+                    
+                    arguments = _ioctlArgumentBuffer.AsSpan(0, (int)inputDataSize);
 
-                byte[] temp = new byte[inputDataSize];
-
-                context.Memory.Read(inputDataPosition, temp);
-
-                Buffer.BlockCopy(temp, 0, outputData, 0, temp.Length);
-
-                arguments = new Span<byte>(outputData);
+                    context.Memory.Read(inputDataPosition, arguments);
+                }
             }
             else if (isWrite)
             {
-                byte[] outputData = new byte[outputDataSize];
-
-                arguments = new Span<byte>(outputData);
+                if (_ioctlArgumentBuffer.Length < (int)outputDataSize)
+                {
+                    Array.Resize(ref _ioctlArgumentBuffer, (int)outputDataSize);
+                }
+                    
+                arguments = _ioctlArgumentBuffer.AsSpan(0, (int)outputDataSize);
             }
             else
             {
-                byte[] temp = new byte[inputDataSize];
+                if (!context.Memory.TryReadUnsafe(inputDataPosition, (int)inputDataSize, out arguments))
+                {
+                    if (_ioctlArgumentBuffer.Length < (int)inputDataSize)
+                    {
+                        Array.Resize(ref _ioctlArgumentBuffer, (int)inputDataSize);
+                    }
+                    
+                    arguments = _ioctlArgumentBuffer.AsSpan(0, (int)inputDataSize);
 
-                context.Memory.Read(inputDataPosition, temp);
-
-                arguments = new Span<byte>(temp);
+                    context.Memory.Read(inputDataPosition, arguments);
+                }
             }
 
             return NvResult.Success;
@@ -267,7 +281,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                         if ((ioctlCommand.DirectionValue & NvIoctl.Direction.Write) != 0)
                         {
-                            context.Memory.Write(context.Request.GetBufferType0x22(0).Position, arguments.ToArray());
+                            context.Memory.Write(context.Request.GetBufferType0x22(0).Position, arguments);
                         }
                     }
                 }
@@ -470,12 +484,17 @@ namespace Ryujinx.HLE.HOS.Services.Nv
                 (ulong inlineInBufferPosition, ulong inlineInBufferSize) = context.Request.GetBufferType0x21(1);
 
                 errorCode = GetIoctlArgument(context, ioctlCommand, out Span<byte> arguments);
-
-                byte[] temp = new byte[inlineInBufferSize];
-
-                context.Memory.Read(inlineInBufferPosition, temp);
-
-                Span<byte> inlineInBuffer = new(temp);
+                
+                if (!context.Memory.TryReadUnsafe(inlineInBufferPosition, (int)inlineInBufferSize, out Span<byte> inlineInBufferSpan))
+                {
+                    if (_ioctl2Buffer.Length < (int)inlineInBufferSize)
+                    {
+                        Array.Resize(ref _ioctl2Buffer, (int)inlineInBufferSize);
+                    }
+                    
+                    inlineInBufferSpan = _ioctl2Buffer.AsSpan(0, (int)inlineInBufferSize);
+                    context.Memory.Read(inlineInBufferPosition, inlineInBufferSpan);
+                }
 
                 if (errorCode == NvResult.Success)
                 {
@@ -483,7 +502,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                     if (errorCode == NvResult.Success)
                     {
-                        NvInternalResult internalResult = deviceFile.Ioctl2(ioctlCommand, arguments, inlineInBuffer);
+                        NvInternalResult internalResult = deviceFile.Ioctl2(ioctlCommand, arguments, inlineInBufferSpan);
 
                         if (internalResult == NvInternalResult.NotImplemented)
                         {
@@ -494,7 +513,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                         if ((ioctlCommand.DirectionValue & NvIoctl.Direction.Write) != 0)
                         {
-                            context.Memory.Write(context.Request.GetBufferType0x22(0).Position, arguments.ToArray());
+                            context.Memory.Write(context.Request.GetBufferType0x22(0).Position, arguments);
                         }
                     }
                 }
@@ -519,12 +538,17 @@ namespace Ryujinx.HLE.HOS.Services.Nv
                 (ulong inlineOutBufferPosition, ulong inlineOutBufferSize) = context.Request.GetBufferType0x22(1);
 
                 errorCode = GetIoctlArgument(context, ioctlCommand, out Span<byte> arguments);
-
-                byte[] temp = new byte[inlineOutBufferSize];
-
-                context.Memory.Read(inlineOutBufferPosition, temp);
-
-                Span<byte> inlineOutBuffer = new(temp);
+                
+                if (!context.Memory.TryReadUnsafe(inlineOutBufferPosition, (int)inlineOutBufferSize, out Span<byte> inlineOutBufferSpan))
+                {
+                    if (_ioctl3Buffer.Length < (int)inlineOutBufferSize)
+                    {
+                        Array.Resize(ref _ioctl3Buffer, (int)inlineOutBufferSize);
+                    }
+                    
+                    inlineOutBufferSpan = _ioctl3Buffer.AsSpan(0, (int)inlineOutBufferSize);
+                    context.Memory.Read(inlineOutBufferPosition, inlineOutBufferSpan);
+                }
 
                 if (errorCode == NvResult.Success)
                 {
@@ -532,7 +556,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                     if (errorCode == NvResult.Success)
                     {
-                        NvInternalResult internalResult = deviceFile.Ioctl3(ioctlCommand, arguments, inlineOutBuffer);
+                        NvInternalResult internalResult = deviceFile.Ioctl3(ioctlCommand, arguments, inlineOutBufferSpan);
 
                         if (internalResult == NvInternalResult.NotImplemented)
                         {
@@ -543,8 +567,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                         if ((ioctlCommand.DirectionValue & NvIoctl.Direction.Write) != 0)
                         {
-                            context.Memory.Write(context.Request.GetBufferType0x22(0).Position, arguments.ToArray());
-                            context.Memory.Write(inlineOutBufferPosition, inlineOutBuffer.ToArray());
+                            context.Memory.Write(context.Request.GetBufferType0x22(0).Position, arguments);
+                            context.Memory.Write(inlineOutBufferPosition, inlineOutBufferSpan);
                         }
                     }
                 }

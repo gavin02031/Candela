@@ -1,26 +1,22 @@
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.Gpu.Image;
+using Ryujinx.Graphics.Gpu.Memory;
 using Ryujinx.Graphics.Texture;
 using Ryujinx.Memory.Range;
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading;
 
 namespace Ryujinx.Graphics.Gpu
 {
-    using Texture = Image.Texture;
-
-    public record TextureData(int Width, int Height, byte[] Data);
-
     /// <summary>
     /// GPU image presentation window.
     /// </summary>
     public class Window
     {
-        private const int CaptureTextureWidth = 1280;
-        private const int CaptureTextureHeight = 720;
-
         private readonly GpuContext _context;
+        private const int DefaultUnboundedPresentTargetFps = 60;
 
         /// <summary>
         /// Texture presented on the window.
@@ -91,23 +87,13 @@ namespace Ryujinx.Graphics.Gpu
             }
         }
 
-        private class PresentedTexture
-        {
-            public readonly Texture Texture;
-            public readonly ImageCrop Crop;
-
-            public PresentedTexture(Texture texture, ImageCrop crop)
-            {
-                Texture = texture;
-                Crop = crop;
-            }
-        }
-
         private readonly ConcurrentQueue<PresentationTexture> _frameQueue;
-        private PresentedTexture _lastPresentedTexture;
-        private ITexture _captureTexture;
+        private readonly Stopwatch _unboundedPresentTimer;
+        private long _unboundedPresentTicksPerFrame;
 
         private int _framesAvailable;
+        private long _lastUnboundedPresentTicks;
+        private volatile bool _unboundedPresentMode;
 
         public bool IsFrameAvailable => _framesAvailable != 0;
 
@@ -120,6 +106,8 @@ namespace Ryujinx.Graphics.Gpu
             _context = context;
 
             _frameQueue = new ConcurrentQueue<PresentationTexture>();
+            _unboundedPresentTimer = Stopwatch.StartNew();
+            SetUnboundedPresentTargetFps(DefaultUnboundedPresentTargetFps);
         }
 
         /// <summary>
@@ -158,7 +146,7 @@ namespace Ryujinx.Graphics.Gpu
             Action<object> releaseCallback,
             object userObj)
         {
-            if (!_context.PhysicalMemoryRegistry.TryGetValue(pid, out var physicalMemory))
+            if (!_context.PhysicalMemoryRegistry.TryGetValue(pid, out PhysicalMemory physicalMemory))
             {
                 return false;
             }
@@ -208,51 +196,6 @@ namespace Ryujinx.Graphics.Gpu
             return true;
         }
 
-        public TextureData GetLastPresentedData()
-        {
-            PresentedTexture pt = Volatile.Read(ref _lastPresentedTexture);
-
-            if (pt != null)
-            {
-                byte[] inputData = CaptureLastFrame(pt.Texture.HostTexture, pt.Crop);
-
-                int size = SizeCalculator.GetBlockLinearTextureSize(
-                    CaptureTextureWidth,
-                    CaptureTextureHeight,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    4,
-                    16,
-                    1,
-                    1).TotalSize;
-
-                byte[] data = new byte[size];
-
-                LayoutConverter.ConvertLinearToBlockLinear(data, CaptureTextureWidth, CaptureTextureHeight, CaptureTextureWidth * 4, 4, 16, inputData);
-
-                return new TextureData(CaptureTextureWidth, CaptureTextureHeight, data);
-            }
-
-            return new TextureData(0, 0, Array.Empty<byte>());
-        }
-
-        public TextureData GetLastPresentedDataLinear()
-        {
-            PresentedTexture pt = Volatile.Read(ref _lastPresentedTexture);
-
-            if (pt != null)
-            {
-                byte[] inputData = CaptureLastFrame(pt.Texture.HostTexture, new ImageCrop());
-
-                return new TextureData(pt.Texture.Info.Width, pt.Texture.Info.Height, inputData);
-            }
-
-            return new TextureData(0, 0, Array.Empty<byte>());
-        }
-
         /// <summary>
         /// Presents a texture on the queue.
         /// If the queue is empty, then no texture is presented.
@@ -269,10 +212,6 @@ namespace Ryujinx.Graphics.Gpu
                 Image.Texture texture = pt.Cache.FindOrCreateTexture(null, TextureSearchFlags.WithUpscale, pt.Info, 0, range: pt.Range);
 
                 pt.Cache.Tick();
-
-                EnsureCaptureTexture();
-
-                Volatile.Write(ref _lastPresentedTexture, new PresentedTexture(texture, pt.Crop));
 
                 texture.SynchronizeMemory();
 
@@ -313,94 +252,83 @@ namespace Ryujinx.Graphics.Gpu
             }
         }
 
-        private void EnsureCaptureTexture()
+        /// <summary>
+        /// Presents all available ready frames, optionally capping unbounded present mode.
+        /// </summary>
+        /// <remarks>
+        /// This method always consumes frames through <see cref="ConsumeFrameAvailable"/> before dequeuing,
+        /// preserving the guest GPU fence readiness gate.
+        /// </remarks>
+        /// <param name="swapBuffersCallback">Callback method to call when a new texture should be presented on the screen</param>
+        /// <returns>True if a frame was presented, false otherwise</returns>
+        public bool PresentLoop(Action swapBuffersCallback)
         {
-            if (_captureTexture == null)
+            bool presented = false;
+
+            if (!_unboundedPresentMode)
             {
-                _captureTexture = _context.Renderer.CreateTexture(new TextureCreateInfo(
-                    1280,
-                    720,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    4,
-                    Format.R8G8B8A8Unorm,
-                    DepthStencilMode.Depth,
-                    Target.Texture2D,
-                    SwizzleComponent.Red,
-                    SwizzleComponent.Green,
-                    SwizzleComponent.Blue,
-                    SwizzleComponent.Alpha));
+                while (ConsumeFrameAvailable())
+                {
+                    Present(swapBuffersCallback);
+                    presented = true;
+                }
+
+                return presented;
+            }
+
+            long ticks = _unboundedPresentTimer.ElapsedTicks;
+            long lastPresentTicks = Interlocked.Read(ref _lastUnboundedPresentTicks);
+            bool shouldPresent = lastPresentTicks == 0 || ticks - lastPresentTicks >= Interlocked.Read(ref _unboundedPresentTicksPerFrame);
+
+            while (ConsumeFrameAvailable())
+            {
+                if (shouldPresent)
+                {
+                    Present(swapBuffersCallback);
+                    _lastUnboundedPresentTicks = ticks;
+                    shouldPresent = false;
+                    presented = true;
+                }
+                else
+                {
+                    DropFrame();
+                }
+            }
+
+            return presented;
+        }
+
+        /// <summary>
+        /// Sets whether the host present loop should cap and drop surplus ready frames.
+        /// </summary>
+        /// <param name="enabled">True when the guest compositor is running with swap interval 0</param>
+        public void SetUnboundedPresentMode(bool enabled)
+        {
+            if (_unboundedPresentMode != enabled)
+            {
+                _unboundedPresentMode = enabled;
+                Interlocked.Exchange(ref _lastUnboundedPresentTicks, 0);
             }
         }
 
-        private byte[] CaptureLastFrame(ITexture lastFrame, ImageCrop crop)
+        /// <summary>
+        /// Sets the FPS target used when unbounded present mode is capped by the host.
+        /// </summary>
+        /// <param name="targetFps">Host display refresh rate in frames per second</param>
+        public void SetUnboundedPresentTargetFps(int targetFps)
         {
-            int cropLeft, cropRight, cropTop, cropBottom;
+            targetFps = Math.Max(1, targetFps);
 
-            if (crop.Left == 0 && crop.Right == 0)
+            Interlocked.Exchange(ref _unboundedPresentTicksPerFrame, Math.Max(1, Stopwatch.Frequency / targetFps));
+            Interlocked.Exchange(ref _lastUnboundedPresentTicks, 0);
+        }
+
+        private void DropFrame()
+        {
+            if (_frameQueue.TryDequeue(out PresentationTexture pt))
             {
-                cropLeft = 0;
-                cropRight = lastFrame.Width;
+                pt.ReleaseCallback(pt.UserObj);
             }
-            else
-            {
-                cropLeft = crop.Left;
-                cropRight = crop.Right;
-            }
-
-            if (crop.Top == 0 && crop.Bottom == 0)
-            {
-                cropTop = 0;
-                cropBottom = lastFrame.Height;
-            }
-            else
-            {
-                cropTop = crop.Top;
-                cropBottom = crop.Bottom;
-            }
-
-            int x1, y1, x2, y2;
-
-            if (crop.FlipX)
-            {
-                x1 = cropRight;
-                x2 = cropLeft;
-            }
-            else
-            {
-                x1 = cropLeft;
-                x2 = cropRight;
-            }
-
-            if (crop.FlipY)
-            {
-                y1 = cropBottom;
-                y2 = cropTop;
-            }
-            else
-            {
-                y1 = cropTop;
-                y2 = cropBottom;
-            }
-
-            Extents2D srcRegion = new(x1, y1, x2, y2);
-            Extents2D dstRegion = new(0, 0, CaptureTextureWidth, CaptureTextureHeight);
-
-            byte[] outputData = null;
-
-            _context.Renderer.BackgroundContextAction(() =>
-            {
-                lastFrame.CopyTo(_captureTexture, srcRegion, dstRegion, true);
-
-                using var data = _captureTexture.GetData();
-
-                outputData = data.Get().ToArray();
-            });
-
-            return outputData;
         }
 
         /// <summary>

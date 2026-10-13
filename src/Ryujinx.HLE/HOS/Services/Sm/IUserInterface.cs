@@ -2,7 +2,6 @@ using Ryujinx.Common.Logging;
 using Ryujinx.HLE.HOS.Ipc;
 using Ryujinx.HLE.HOS.Kernel;
 using Ryujinx.HLE.HOS.Kernel.Ipc;
-using Ryujinx.HLE.HOS.Services.Apm;
 using Ryujinx.Horizon.Common;
 using System;
 using System.Collections.Generic;
@@ -17,13 +16,12 @@ namespace Ryujinx.HLE.HOS.Services.Sm
     {
 
         private readonly SmRegistry _registry;
-        private readonly ServerBase _commonServer;
+        private ServerBase _commonServer;
 
         private bool _isInitialized;
 
-        public IUserInterface(KernelContext context, SmRegistry registry)
+        public IUserInterface(KernelContext context, SmRegistry registry) : base(registerTipc: true)
         {
-            _commonServer = new ServerBase(context, "CommonServer");
             _registry = registry;
         }
 
@@ -83,9 +81,12 @@ namespace Ryujinx.HLE.HOS.Services.Sm
             }
             else
             {
-
                 if (GetServiceInstance(name, context) is { } service)
                 {
+                    if (_commonServer is null)
+                    {
+                        _commonServer = new ServerBase(context.Device.System.KernelContext, "Common");
+                    }
                     service.TrySetServer(_commonServer);
                     service.Server.AddSessionObj(session.ServerSession, service);
                 }
@@ -231,7 +232,7 @@ namespace Ryujinx.HLE.HOS.Services.Sm
             {
                 byte chr = context.RequestData.ReadByte();
 
-                if (chr >= 0x20 && chr < 0x7f)
+                if (chr is >= 0x20 and < 0x7f)
                 {
                     nameBuilder.Append((char)chr);
                 }
@@ -242,7 +243,7 @@ namespace Ryujinx.HLE.HOS.Services.Sm
 
         public override void DestroyAtExit()
         {
-            _commonServer.Dispose();
+            _commonServer?.Dispose();
 
             base.DestroyAtExit();
         }

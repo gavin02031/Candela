@@ -1,6 +1,6 @@
 namespace Ryujinx.HLE.HOS.Tamper.Operations
 {
-    class OpAdd<T> : IOperation where T : unmanaged
+    class OpAdd<T> : IOperation where T : unmanaged, System.Numerics.IBinaryInteger<T>
     {
         readonly IOperand _destination;
         readonly IOperand _lhs;
@@ -15,8 +15,7 @@ namespace Ryujinx.HLE.HOS.Tamper.Operations
 
         public void Execute()
         {
-            T result = TypeSafeOperations.Add(_lhs.Get<T>(), _rhs.Get<T>());
-            _destination.Set(result);
+            _destination.Set(_lhs.Get<T>() + _rhs.Get<T>());
         }
     }
 }

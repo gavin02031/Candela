@@ -1,10 +1,13 @@
 using Ryujinx.Common;
+using Ryujinx.Common.Configuration;
+using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.Device;
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.Gpu.Engine.GPFifo;
 using Ryujinx.Graphics.Gpu.Memory;
 using Ryujinx.Graphics.Gpu.Shader;
 using Ryujinx.Graphics.Gpu.Synchronization;
+using Ryujinx.Memory;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -92,6 +95,13 @@ namespace Ryujinx.Graphics.Gpu
         internal SupportBufferUpdater SupportBufferUpdater { get; }
 
         /// <summary>
+        /// Enabled dirty hacks.
+        /// Used for workarounds to emulator bugs we can't fix/don't know how to fix yet.
+        /// </summary>
+        internal DirtyHacks DirtyHacks { get; }
+
+
+        /// <summary>
         /// Host hardware capabilities.
         /// </summary>
         internal Capabilities Capabilities;
@@ -113,7 +123,7 @@ namespace Ryujinx.Graphics.Gpu
         /// Creates a new instance of the GPU emulation context.
         /// </summary>
         /// <param name="renderer">Host renderer</param>
-        public GpuContext(IRenderer renderer)
+        public GpuContext(IRenderer renderer, DirtyHacks hacks)
         {
             Renderer = renderer;
 
@@ -126,15 +136,17 @@ namespace Ryujinx.Graphics.Gpu
             HostInitalized = new ManualResetEvent(false);
             _gpuReadyEvent = new ManualResetEvent(false);
 
-            SyncActions = new List<ISyncActionHandler>();
-            SyncpointActions = new List<ISyncActionHandler>();
-            BufferMigrations = new List<BufferMigration>();
+            SyncActions = [];
+            SyncpointActions = [];
+            BufferMigrations = [];
 
             DeferredActions = new Queue<Action>();
 
             PhysicalMemoryRegistry = new ConcurrentDictionary<ulong, PhysicalMemory>();
 
             SupportBufferUpdater = new SupportBufferUpdater(renderer);
+
+            DirtyHacks = hacks;
 
             _firstTimestamp = ConvertNanosecondsToTicks((ulong)PerformanceCounter.ElapsedNanoseconds);
         }
@@ -152,16 +164,17 @@ namespace Ryujinx.Graphics.Gpu
         /// Creates a new GPU memory manager.
         /// </summary>
         /// <param name="pid">ID of the process that owns the memory manager</param>
+        /// <param name="cpuMemorySize">The amount of physical CPU Memory Avaiable on the device.</param>
         /// <returns>The memory manager</returns>
         /// <exception cref="ArgumentException">Thrown when <paramref name="pid"/> is invalid</exception>
-        public MemoryManager CreateMemoryManager(ulong pid)
+        public MemoryManager CreateMemoryManager(ulong pid, ulong cpuMemorySize)
         {
-            if (!PhysicalMemoryRegistry.TryGetValue(pid, out var physicalMemory))
+            if (!PhysicalMemoryRegistry.TryGetValue(pid, out PhysicalMemory physicalMemory))
             {
                 throw new ArgumentException("The PID is invalid or the process was not registered", nameof(pid));
             }
 
-            return new MemoryManager(this, physicalMemory);
+            return new MemoryManager(this, physicalMemory, cpuMemorySize);
         }
 
         /// <summary>
@@ -172,7 +185,7 @@ namespace Ryujinx.Graphics.Gpu
         /// <exception cref="ArgumentException">Thrown when <paramref name="pid"/> is invalid</exception>
         public DeviceMemoryManager CreateDeviceMemoryManager(ulong pid)
         {
-            if (!PhysicalMemoryRegistry.TryGetValue(pid, out var physicalMemory))
+            if (!PhysicalMemoryRegistry.TryGetValue(pid, out PhysicalMemory physicalMemory))
             {
                 throw new ArgumentException("The PID is invalid or the process was not registered", nameof(pid));
             }
@@ -188,7 +201,7 @@ namespace Ryujinx.Graphics.Gpu
         /// <exception cref="ArgumentException">Thrown if <paramref name="pid"/> was already registered</exception>
         public void RegisterProcess(ulong pid, Cpu.IVirtualMemoryManagerTracked cpuMemory)
         {
-            var physicalMemory = new PhysicalMemory(this, cpuMemory);
+            PhysicalMemory physicalMemory = new(this, cpuMemory);
             if (!PhysicalMemoryRegistry.TryAdd(pid, physicalMemory))
             {
                 throw new ArgumentException("The PID was already registered", nameof(pid));
@@ -203,7 +216,7 @@ namespace Ryujinx.Graphics.Gpu
         /// <param name="pid">ID of the process</param>
         public void UnregisterProcess(ulong pid)
         {
-            if (PhysicalMemoryRegistry.TryRemove(pid, out var physicalMemory))
+            if (PhysicalMemoryRegistry.TryRemove(pid, out PhysicalMemory physicalMemory))
             {
                 physicalMemory.ShaderCache.ShaderCacheStateChanged -= ShaderCacheStateUpdate;
                 physicalMemory.Dispose();
@@ -278,7 +291,7 @@ namespace Ryujinx.Graphics.Gpu
         {
             HostInitalized.WaitOne();
 
-            foreach (var physicalMemory in PhysicalMemoryRegistry.Values)
+            foreach (PhysicalMemory physicalMemory in PhysicalMemoryRegistry.Values)
             {
                 physicalMemory.ShaderCache.Initialize(cancellationToken);
             }
@@ -318,10 +331,78 @@ namespace Ryujinx.Graphics.Gpu
         /// </summary>
         public void ProcessShaderCacheQueue()
         {
-            foreach (var physicalMemory in PhysicalMemoryRegistry.Values)
+            foreach (PhysicalMemory physicalMemory in PhysicalMemoryRegistry.Values)
             {
                 physicalMemory.ShaderCache.ProcessShaderCacheQueue();
             }
+        }
+
+        private const ulong TrimMiB = 1024 * 1024;
+        private const ulong ComfortableHeadroomBytes = 768 * TrimMiB;
+        private const ulong CriticalHeadroomBytes = 256 * TrimMiB;
+        private const long MinimumTrimIntervalMs = 2000;
+
+        private long _lastTrimTimestamp;
+
+        /// <summary>
+        /// Evicts GPU resource caches in response to host memory pressure, in proportion to what
+        /// they are actually holding and only when this process looks like the one under pressure.
+        /// </summary>
+        /// <param name="level">How much the host wants back</param>
+        public void TrimCaches(MemoryPressureLevel level)
+        {
+            if (level == MemoryPressureLevel.Normal || !GraphicsConfig.EnableHostMemoryBudgetTracking)
+            {
+                return;
+            }
+
+            ulong available = HostMemoryBudget.AvailableBytes;
+
+            if (available != 0)
+            {
+                if (available >= ComfortableHeadroomBytes)
+                {
+                    Logger.Debug?.Print(LogClass.Gpu,
+                        $"Ignoring {level} host memory pressure with {available / TrimMiB} MiB still available to this process");
+
+                    return;
+                }
+
+                if (available <= CriticalHeadroomBytes)
+                {
+                    level = MemoryPressureLevel.Critical;
+                }
+            }
+
+            long now = Environment.TickCount64;
+
+            if (_lastTrimTimestamp != 0 && now - _lastTrimTimestamp < MinimumTrimIntervalMs)
+            {
+                return;
+            }
+
+            _lastTrimTimestamp = now;
+
+            ulong evicted = 0;
+
+            foreach (PhysicalMemory physicalMemory in PhysicalMemoryRegistry.Values)
+            {
+                evicted += physicalMemory.TextureCache.Trim(level);
+                evicted += physicalMemory.BufferCache.Trim(level);
+            }
+
+            if (evicted == 0)
+            {
+                Logger.Debug?.Print(LogClass.Gpu,
+                    $"Host reported {level} memory pressure, but the GPU caches are already trimmed");
+
+                return;
+            }
+
+            string headroom = available != 0 ? $", {available / TrimMiB} MiB available" : string.Empty;
+
+            Logger.Info?.Print(LogClass.Gpu,
+                $"Host reported {level} memory pressure{headroom}, released {evicted / TrimMiB} MiB of GPU caches");
         }
 
         /// <summary>
@@ -370,9 +451,9 @@ namespace Ryujinx.Graphics.Gpu
         /// <param name="flags">Modifiers for how host sync should be created</param>
         internal void CreateHostSyncIfNeeded(HostSyncFlags flags)
         {
-            bool syncpoint = flags.HasFlag(HostSyncFlags.Syncpoint);
-            bool strict = flags.HasFlag(HostSyncFlags.Strict);
-            bool force = flags.HasFlag(HostSyncFlags.Force);
+            bool syncPoint = (flags & HostSyncFlags.Syncpoint) == HostSyncFlags.Syncpoint;
+            bool strict = (flags & HostSyncFlags.Strict) == HostSyncFlags.Strict;
+            bool force = (flags & HostSyncFlags.Force) == HostSyncFlags.Force;
 
             if (BufferMigrations.Count > 0)
             {
@@ -391,24 +472,40 @@ namespace Ryujinx.Graphics.Gpu
                 }
             }
 
-            if (force || _pendingSync || (syncpoint && SyncpointActions.Count > 0))
+            if (force || _pendingSync || (syncPoint && SyncpointActions.Count > 0))
             {
-                foreach (var action in SyncActions)
+                for (int i = 0; i < SyncActions.Count; i++)
                 {
-                    action.SyncPreAction(syncpoint);
+                    if (SyncActions[i].SyncPreAction(syncPoint))
+                    {
+                        SyncActions.RemoveAt(i--);
+                    }
                 }
 
-                foreach (var action in SyncpointActions)
+                foreach (ISyncActionHandler action in SyncpointActions)
                 {
-                    action.SyncPreAction(syncpoint);
+                    action.SyncPreAction(syncPoint);
                 }
 
                 Renderer.CreateSync(SyncNumber, strict);
 
                 SyncNumber++;
 
-                SyncActions.RemoveAll(action => action.SyncAction(syncpoint));
-                SyncpointActions.RemoveAll(action => action.SyncAction(syncpoint));
+                for (int i = 0; i < SyncActions.Count; i++)
+                {
+                    if (SyncActions[i].SyncAction(syncPoint))
+                    {
+                        SyncActions.RemoveAt(i--);
+                    }
+                }
+                
+                for (int i = 0; i < SyncpointActions.Count; i++)
+                {
+                    if (SyncpointActions[i].SyncAction(syncPoint))
+                    {
+                        SyncpointActions.RemoveAt(i--);
+                    }
+                }
             }
 
             _pendingSync = false;
@@ -439,7 +536,7 @@ namespace Ryujinx.Graphics.Gpu
             _gpuReadyEvent.Dispose();
 
             // Has to be disposed before processing deferred actions, as it will produce some.
-            foreach (var physicalMemory in PhysicalMemoryRegistry.Values)
+            foreach (PhysicalMemory physicalMemory in PhysicalMemoryRegistry.Values)
             {
                 physicalMemory.Dispose();
             }

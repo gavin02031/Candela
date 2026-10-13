@@ -2,6 +2,8 @@ using System;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using Ryujinx.Common.Logging;
+using static Ryujinx.Memory.MemoryManagerUnixHelper;
+using System.Runtime.Versioning;
 
 namespace Ryujinx.Memory
 {
@@ -13,11 +15,14 @@ namespace Ryujinx.Memory
     /// Specifically targets iOS 26, where the traditional method of reprotecting
     /// memory from writable to executable (RX) no longer works for JIT code.
     /// </summary>
+    ///     
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("ios")]
     public class DualMappedJitAllocator : IDisposable
     {
 
-        public IntPtr RwPtr { get; private set; }
-        public IntPtr RxPtr { get; private set; }
+        public nint RwPtr { get; private set; }
+        public nint RxPtr { get; private set; }
         public ulong Size { get; private set; }
 
         [DllImport("BreakpointJIT.framework/BreakpointJIT", EntryPoint = "BreakGetJITMapping")]
@@ -31,25 +36,26 @@ namespace Ryujinx.Memory
 
         static public bool hasTXM => Environment.GetEnvironmentVariable("HAS_TXM") == "1"; 
 
+        static public bool dualMappingEnabled => Environment.GetEnvironmentVariable("DUAL_MAPPED_JIT") == "1"; 
 
-        private IntPtr _mmapPtr;
+        static private bool usingNewMapping = true;
 
-        public DualMappedJitAllocator(ulong size)
+        public DualMappedJitAllocator(ulong size, nint? mapping = null)
         {
-            var stackTrace = new StackTrace(1, false); // Skip *this* frame
+            var stackTrace = new StackTrace(1, false);
             var callingMethod = stackTrace.GetFrame(0)?.GetMethod();
 
             Logger.Info?.Print(LogClass.Cpu,
-                $"Allocating dual-mapped JIT memory of size {size} bytes, called by {callingMethod?.DeclaringType?.FullName}.{callingMethod?.Name}");
+                $"Allocating dual-mapped JIT memory of size {size} bytes, called by {callingMethod?.DeclaringType?.FullName}.{callingMethod?.Name} with {hasTXM}, {dualMappingEnabled}");
             Size = size;
-            AllocateDualMapping();
+            AllocateDualMapping(mapping);
         }
 
-        IntPtr BreakGetJITMapping(nuint bytes)
+        nint? BreakGetJITMapping(nuint bytes)
         {
             unsafe
             {
-                byte* ptr = BreakMarkJITMapping(bytes);
+                byte* ptr = usingNewMapping ? (byte*)0 : (byte*)BreakMarkJITMapping(bytes);
                 Logger.Info?.Print(LogClass.Cpu, $"testing for BreakGetJITMapping, got {(ulong)ptr}");
                 if (ptr == null || ptr == (byte*)0 || ptr == (byte*)-1 || ptr == (byte*)14757395257293275360 || ptr == (byte*)1761607904)
                 {
@@ -58,29 +64,41 @@ namespace Ryujinx.Memory
                     if (ptr == null || ptr == (byte*)0 || ptr == (byte*)-1)
                     {
                         Logger.Info?.Print(LogClass.Cpu, "Failed to get JIT mapping from BreakGetJITMapping.");
-                        throw new Exception("Failed to get JIT, Are you using StikDebug and Picture in Picture is enabled?");
-                    }
+                        return null;
+                    } else { usingNewMapping = true; }
                 }
 
-                return (IntPtr)ptr;
+                return (nint)ptr;
             }
         }
 
-        private void AllocateDualMapping()
+        private void AllocateDualMapping(nint? mapping = null)
         {
-            IntPtr _mmapPtr;
+            nint? _mmapPtr = null;
 
             if (hasTXM)
             {
-                _mmapPtr = BreakGetJITMapping((nuint)Size);
+                if (mapping is not null) 
+                {
+                    unsafe 
+                    {
+                        byte* pByte = (byte*)mapping.Value;
+                        _mmapPtr = (nint)BreakGetJITMappingPub(pByte, (nuint)Size);
+                    }
+                }
+                else
+                {
+                    _mmapPtr = BreakGetJITMapping((nuint)Size);
+                } 
+
             }
             else
             {
-                _mmapPtr = mmap(IntPtr.Zero, (UIntPtr)Size, PROT_READ | PROT_EXEC, MAP_ANON | MAP_PRIVATE, -1, 0);
-
-                if (_mmapPtr == MAP_FAILED)
-                    throw new Exception("Failed to mmap memory");
+                _mmapPtr = mapping ?? Mmap(0, Size, MmapProts.PROT_READ | MmapProts.PROT_EXEC, MmapFlags.MAP_ANONYMOUS | MmapFlags.MAP_PRIVATE, -1, 0);
             }
+
+             if (_mmapPtr == null || _mmapPtr == MAP_FAILED)
+                throw new Exception("Failed to mmap memory");
 
             var bufRX = (ulong)_mmapPtr;
             ulong bufRW = 0;
@@ -95,39 +113,30 @@ namespace Ryujinx.Memory
             if (protectRWResult != KERN_SUCCESS)
                 throw new Exception($"Failed to set RW protection: {protectRWResult}");
 
-            RwPtr = (IntPtr)bufRW;
-            RxPtr = (IntPtr)bufRX;
+            RwPtr = (nint)bufRW;
+            RxPtr = (nint)_mmapPtr;
         }
 
         public void Dispose()
         {
-            if (_mmapPtr != IntPtr.Zero)
+            if (RxPtr != IntPtr.Zero)
             {
-                munmap(_mmapPtr, (UIntPtr)Size);
-                _mmapPtr = IntPtr.Zero;
+                munmap(RxPtr, Size);
+                RxPtr = IntPtr.Zero;
 
-                munmap(RwPtr, (UIntPtr)Size);
+                munmap(RwPtr, Size);
                 RwPtr = IntPtr.Zero;
             }
         }
 
-        private const int PROT_READ = 1;
-        private const int PROT_EXEC = 4;
         private const int MAP_ANON = 0x1000;
         private const int MAP_PRIVATE = 0x2;
-        private static readonly IntPtr MAP_FAILED = new IntPtr(-1);
 
         private const int VM_FLAGS_ANYWHERE = 1 << 0;
         private const int VM_INHERIT_NONE = 2;
         private const int KERN_SUCCESS = 0;
         private const int VM_PROT_READ = 1;
         private const int VM_PROT_WRITE = 2;
-
-        [DllImport("libc", SetLastError = true)]
-        private static extern IntPtr mmap(IntPtr addr, UIntPtr len, int prot, int flags, int fd, long offset);
-
-        [DllImport("libc", SetLastError = true)]
-        private static extern int munmap(IntPtr addr, UIntPtr len);
 
         [DllImport("libc")]
         private static extern ulong mach_task_self();

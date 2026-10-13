@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <DefaultItemExcludes>$(DefaultItemExcludes);._*</DefaultItemExcludes>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -44,6 +44,7 @@
     <EmbeddedResource Include="Shaders\SpirvBinaries\DepthDrawToMsFragment.spv" />
     <EmbeddedResource Include="Shaders\SpirvBinaries\DepthDrawToNonMsFragment.spv" />
     <EmbeddedResource Include="Shaders\SpirvBinaries\DepthStencilClearFragment.spv" />
+    <EmbeddedResource Include="Shaders\SpirvBinaries\PresentCopyCompute.spv" />
     <EmbeddedResource Include="Shaders\SpirvBinaries\StencilBlitFragment.spv" />
     <EmbeddedResource Include="Shaders\SpirvBinaries\StencilBlitMsFragment.spv" />
     <EmbeddedResource Include="Shaders\SpirvBinaries\StencilDrawToMsFragment.spv" />

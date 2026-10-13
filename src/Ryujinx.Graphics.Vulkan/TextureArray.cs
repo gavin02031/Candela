@@ -56,14 +56,21 @@ namespace Ryujinx.Graphics.Vulkan
         {
             for (int i = 0; i < samplers.Length; i++)
             {
-                ISampler sampler = samplers[i];
+                try 
+                {
+                    ISampler sampler = samplers[i];
 
-                if (sampler is SamplerHolder samplerHolder)
-                {
-                    _textureRefs[index + i].Sampler = samplerHolder.GetSampler();
-                }
-                else
-                {
+                    if (sampler is SamplerHolder samplerHolder)
+                    {
+                        _textureRefs[index + i].Sampler = samplerHolder.GetSampler();
+                    }
+                    else
+                    {
+                        _textureRefs[index + i].Sampler = default;
+                    }
+                } 
+                catch
+                 {
                     _textureRefs[index + i].Sampler = default;
                 }
             }
@@ -113,7 +120,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             if (storages == null)
             {
-                storages = new HashSet<TextureStorage>();
+                storages = [];
 
                 for (int index = 0; index < _textureRefs.Length; index++)
                 {
@@ -148,8 +155,8 @@ namespace Ryujinx.Graphics.Vulkan
 
             for (int i = 0; i < textures.Length; i++)
             {
-                ref var texture = ref textures[i];
-                ref var refs = ref _textureRefs[i];
+                ref DescriptorImageInfo texture = ref textures[i];
+                ref TextureRef refs = ref _textureRefs[i];
 
                 if (i > 0 && _textureRefs[i - 1].View == refs.View && _textureRefs[i - 1].Sampler == refs.Sampler)
                 {

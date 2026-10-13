@@ -36,11 +36,10 @@ namespace Ryujinx.Graphics.Gpu.Memory
 
         public event EventHandler<UnmapEventArgs> MemoryUnmapped;
 
-
         /// <summary>
         /// Physical memory where the virtual memory is mapped into.
         /// </summary>
-        internal PhysicalMemory Physical => _physicalMemoryList[_physicalMemoryList.Count - 1];
+        internal PhysicalMemory Physical => _physicalMemoryList[0];
 
         private readonly GpuContext _context;
         private readonly List<PhysicalMemory> _physicalMemoryList;
@@ -56,12 +55,15 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// </summary>
         internal CounterCache CounterCache { get; }
 
+        private delegate void WriteCallback(PhysicalMemory physicalMemory, ulong address, ReadOnlySpan<byte> data);
+
         /// <summary>
         /// Creates a new instance of the GPU memory manager.
         /// </summary>
         /// <param name="context">GPU context</param>
         /// <param name="physicalMemory">Physical memory that this memory manager will map into</param>
-        internal MemoryManager(GpuContext context, PhysicalMemory physicalMemory)
+        /// <param name="cpuMemorySize">The amount of physical CPU memory available on the device.</param>
+        internal MemoryManager(GpuContext context, PhysicalMemory physicalMemory, ulong cpuMemorySize)
         {
             _context = context;
 
@@ -82,7 +84,8 @@ namespace Ryujinx.Graphics.Gpu.Memory
             MemoryUnmapped += physicalMemory.BufferCache.MemoryUnmappedHandler;
             MemoryUnmapped += VirtualRangeCache.MemoryUnmappedHandler;
             MemoryUnmapped += CounterCache.MemoryUnmappedHandler;
-            physicalMemory.TextureCache.Initialize();
+            physicalMemory.BufferCache.Initialize(cpuMemorySize);
+            physicalMemory.TextureCache.Initialize(cpuMemorySize);
         }
 
         /// <summary>
@@ -99,7 +102,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         }
 
         /// <summary>
-        /// Attaches the memory manager to a new GPU channel.
+        /// Detaches the memory manager from a GPU channel.
         /// </summary>
         /// <param name="rebind">Action that was performed when the buffer cache changed</param>
         internal void DetachFromChannel(Action rebind)
@@ -190,7 +193,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
             bool isContiguous = true;
             int mappedSize;
 
-            if (ValidateAddress(va) && IsMappedOnGpuAndPhysical(va))
+            if (ValidateAddress(va) && IsMappedOnPhysical(va))
             {
                 ulong endVa = va + (ulong)size;
                 ulong endVaAligned = (endVa + PageMask) & ~PageMask;
@@ -203,7 +206,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
                     ulong nextVa = currentVa + PageSize;
                     ulong nextPa = Translate(nextVa);
 
-                    if (!ValidateAddress(nextVa) || !IsMappedOnGpuAndPhysical(nextVa))
+                    if (!ValidateAddress(nextVa) || !IsMappedOnPhysical(nextVa))
                     {
                         break;
                     }
@@ -247,11 +250,11 @@ namespace Ryujinx.Graphics.Gpu.Memory
         }
 
         /// <summary>
-        /// Checks if a page of memory is mapped on the GPU and its backing memory.
+        /// Checks if a page of memory is mapped on the GPU and its backing physical memory.
         /// </summary>
         /// <param name="va">GPU virtual address of the page</param>
         /// <returns>True if mapped, false otherwise</returns>
-        private bool IsMappedOnGpuAndPhysical(ulong va)
+        private bool IsMappedOnPhysical(ulong va)
         {
             (PhysicalMemory physicalMemory, ulong address) = TranslateWithPhysicalMemory(va);
 
@@ -316,11 +319,11 @@ namespace Ryujinx.Graphics.Gpu.Memory
             }
             else
             {
-                Memory<byte> memory = new byte[size];
+                MemoryOwner<byte> memoryOwner = MemoryOwner<byte>.Rent(size);
 
-                GetSpan(va, size).CopyTo(memory.Span);
+                ReadImpl(va, memoryOwner.Span, tracked);
 
-                return new WritableRegion(this, va, memory, tracked);
+                return new WritableRegion(this, va, memoryOwner, tracked);
             }
         }
 
@@ -342,7 +345,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// <param name="data">The data to be written</param>
         public void Write(ulong va, ReadOnlySpan<byte> data)
         {
-            WriteImpl(va, data, (physical, va, data) => physical.Write(va, data));
+            WriteImpl(va, data, (physical, pa, data) => physical.Write(pa, data));
         }
 
         /// <summary>
@@ -352,7 +355,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// <param name="data">The data to be written</param>
         public void WriteTrackedResource(ulong va, ReadOnlySpan<byte> data)
         {
-            WriteImpl(va, data, (physical, va, data) => physical.WriteTrackedResource(va, data));
+            WriteImpl(va, data, (physical, pa, data) => physical.WriteTrackedResource(pa, data));
         }
 
         /// <summary>
@@ -362,10 +365,8 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// <param name="data">The data to be written</param>
         public void WriteUntracked(ulong va, ReadOnlySpan<byte> data)
         {
-            WriteImpl(va, data, (physical, va, data) => physical.WriteUntracked(va, data));
+            WriteImpl(va, data, (physical, pa, data) => physical.WriteUntracked(pa, data));
         }
-
-        private delegate void WriteCallback(PhysicalMemory physicalMemory, ulong address, ReadOnlySpan<byte> data);
 
         /// <summary>
         /// Writes data to possibly non-contiguous GPU mapped memory.
@@ -408,7 +409,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         }
 
         /// <summary>
-        /// Writes data to GPU mapped memory, stopping at the first unmapped page at the memory region, if any.
+        /// Writes data to GPU mapped memory, stopping at the first unmapped page, if any.
         /// </summary>
         /// <param name="va">GPU virtual address to write the data into</param>
         /// <param name="data">The data to be written</param>
@@ -519,6 +520,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
             {
                 UnmapEventArgs e = new(va, size);
                 MemoryUnmapped?.Invoke(this, e);
+
                 byte pIndex = physicalMemory != null ? GetOrAddPhysicalMemory(physicalMemory) : (byte)0;
 
                 for (ulong offset = 0; offset < size; offset += PageSize)
@@ -615,7 +617,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
 
             int pages = (int)((endVaRounded - va) / PageSize);
 
-            var regions = new List<MemoryRange>();
+            List<MemoryRange> regions = [];
 
             for (int page = 0; page < pages - 1; page++)
             {
@@ -694,10 +696,10 @@ namespace Ryujinx.Graphics.Gpu.Memory
         }
 
         /// <summary>
-        /// Gets the backing memory for a given GPU virtual address.
+        /// Gets the backing physical memory for a given GPU virtual address.
         /// </summary>
         /// <param name="va">GPU virtual address to get the backing memory from</param>
-        /// <returns>The backing memory for the specified GPU virtual address</returns>
+        /// <returns>The backing physical memory for the specified GPU virtual address</returns>
         internal PhysicalMemory GetBackingMemory(ulong va)
         {
             ulong pte = GetPte(va);
@@ -711,9 +713,9 @@ namespace Ryujinx.Graphics.Gpu.Memory
         }
 
         /// <summary>
-        /// Gets the backing memory that is owned by this GPU memory manager.
+        /// Gets the physical memory that is owned by this GPU memory manager.
         /// </summary>
-        /// <returns>The backing memory owned by this memory manager</returns>
+        /// <returns>The physical memory owned by this memory manager</returns>
         private PhysicalMemory GetOwnPhysicalMemory()
         {
             return _physicalMemoryList[0];
@@ -754,6 +756,23 @@ namespace Ryujinx.Graphics.Gpu.Memory
         public bool IsMapped(ulong va)
         {
             return Translate(va) != PteUnmapped;
+        }
+
+        /// <summary>
+        /// Checks if a given GPU virtual address is mapped to foreign (non-owned) physical memory.
+        /// </summary>
+        /// <param name="va">GPU virtual address to check</param>
+        /// <returns>True if the mapping points to foreign physical memory, false otherwise</returns>
+        public bool IsForeignMapping(ulong va)
+        {
+            ulong pte = GetPte(va);
+
+            if (pte == PteUnmapped)
+            {
+                return false;
+            }
+
+            return UnpackPIndexFromPte(pte) != 0;
         }
 
         /// <summary>
@@ -824,7 +843,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
             }
 
             ulong startVa = va;
-            ulong endVa = va + maxSize;
+            ulong endVa = (maxSize > ulong.MaxValue - va) ? ulong.MaxValue : va + maxSize;
 
             ulong pte = GetPte(va);
 
@@ -841,7 +860,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// Translates a GPU virtual address to a CPU virtual address and the associated physical memory.
         /// </summary>
         /// <param name="va">GPU virtual address to be translated</param>
-        /// <returns>CPU virtual address with the physical memory, or <see cref="PteUnmapped"/> if unmapped</returns>
+        /// <returns>Physical memory and CPU virtual address, or <see cref="PteUnmapped"/> if unmapped</returns>
         private (PhysicalMemory, ulong) TranslateWithPhysicalMemory(ulong va)
         {
             if (!ValidateAddress(va))
@@ -882,18 +901,6 @@ namespace Ryujinx.Graphics.Gpu.Memory
             return UnpackKindFromPte(pte);
         }
 
-        public bool IsForeignMapping(ulong va)
-        {
-            ulong pte = GetPte(va);
-
-            if (pte == PteUnmapped)
-            {
-                return false;
-            }
-
-            return UnpackPIndexFromPte(pte) != 0;
-        }
-
         /// <summary>
         /// Gets the Page Table entry for a given GPU virtual address.
         /// </summary>
@@ -926,17 +933,14 @@ namespace Ryujinx.Graphics.Gpu.Memory
             {
                 _pageTable[l0] = new ulong[PtLvl1Size];
 
-                for (ulong index = 0; index < PtLvl1Size; index++)
-                {
-                    _pageTable[l0][index] = PteUnmapped;
-                }
+                Array.Fill(_pageTable[l0], PteUnmapped);
             }
 
             _pageTable[l0][l1] = pte;
         }
 
         /// <summary>
-        /// Creates a page table entry from a physical address and kind.
+        /// Creates a page table entry from a physical address, physical memory index, and kind.
         /// </summary>
         /// <param name="pa">Physical address</param>
         /// <param name="pIndex">Index of the physical memory on the list</param>

@@ -8,12 +8,14 @@ namespace Ryujinx.Graphics.Vulkan
     class MemoryAllocator : IDisposable
     {
         private const ulong MaxDeviceMemoryUsageEstimate = 16UL * 1024 * 1024 * 1024;
+        private const int MinimumPoolBlockSize = 4 * 1024 * 1024;
+        private const bool EnableSuballocationPooling = false;
 
         private readonly Vk _api;
         private readonly VulkanPhysicalDevice _physicalDevice;
         private readonly Device _device;
         private readonly List<MemoryAllocatorBlockList> _blockLists;
-        private readonly int _blockAlignment;
+        private readonly int _poolBlockSize;
         private readonly ReaderWriterLockSlim _lock;
 
         public MemoryAllocator(Vk api, VulkanPhysicalDevice physicalDevice, Device device)
@@ -21,8 +23,15 @@ namespace Ryujinx.Graphics.Vulkan
             _api = api;
             _physicalDevice = physicalDevice;
             _device = device;
-            _blockLists = new List<MemoryAllocatorBlockList>();
-            _blockAlignment = (int)Math.Min(int.MaxValue, MaxDeviceMemoryUsageEstimate / _physicalDevice.PhysicalDeviceProperties.Limits.MaxMemoryAllocationCount);
+            _blockLists = [];
+            int allocationLimitBlockSize = (int)Math.Min(
+                int.MaxValue,
+                MaxDeviceMemoryUsageEstimate / _physicalDevice.PhysicalDeviceProperties.Limits.MaxMemoryAllocationCount);
+            
+            
+            _poolBlockSize = EnableSuballocationPooling
+                ? Math.Max(MinimumPoolBlockSize, allocationLimitBlockSize)
+                : allocationLimitBlockSize;
             _lock = new(LockRecursionPolicy.NoRecursion);
         }
 
@@ -49,7 +58,7 @@ namespace Ryujinx.Graphics.Vulkan
             {
                 for (int i = 0; i < _blockLists.Count; i++)
                 {
-                    var bl = _blockLists[i];
+                    MemoryAllocatorBlockList bl = _blockLists[i];
                     if (bl.MemoryTypeIndex == memoryTypeIndex && bl.ForBuffer == isBuffer)
                     {
                         return bl.Allocate(size, alignment, map);
@@ -65,7 +74,16 @@ namespace Ryujinx.Graphics.Vulkan
 
             try
             {
-                var newBl = new MemoryAllocatorBlockList(_api, _device, memoryTypeIndex, _blockAlignment, isBuffer);
+                for (int i = 0; i < _blockLists.Count; i++)
+                {
+                    MemoryAllocatorBlockList bl = _blockLists[i];
+                    if (bl.MemoryTypeIndex == memoryTypeIndex && bl.ForBuffer == isBuffer)
+                    {
+                        return bl.Allocate(size, alignment, map);
+                    }
+                }
+
+                MemoryAllocatorBlockList newBl = new(_api, _device, memoryTypeIndex, _poolBlockSize, isBuffer);
                 _blockLists.Add(newBl);
 
                 return newBl.Allocate(size, alignment, map);
@@ -76,13 +94,11 @@ namespace Ryujinx.Graphics.Vulkan
             }
         }
 
-        internal int FindSuitableMemoryTypeIndex(
-            uint memoryTypeBits,
-            MemoryPropertyFlags flags)
+        internal int FindSuitableMemoryTypeIndex(uint memoryTypeBits, MemoryPropertyFlags flags)
         {
             for (int i = 0; i < _physicalDevice.PhysicalDeviceMemoryProperties.MemoryTypeCount; i++)
             {
-                var type = _physicalDevice.PhysicalDeviceMemoryProperties.MemoryTypes[i];
+                MemoryType type = _physicalDevice.PhysicalDeviceMemoryProperties.MemoryTypes[i];
 
                 if ((memoryTypeBits & (1 << i)) != 0)
                 {

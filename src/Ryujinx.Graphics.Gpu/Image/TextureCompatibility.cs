@@ -75,34 +75,64 @@ namespace Ryujinx.Graphics.Gpu.Image
 
             if (!caps.SupportsAstcCompression)
             {
-                if (info.FormatInfo.Format.IsAstcUnorm())
+                if (info.FormatInfo.Format.IsAstcUnorm)
                 {
-                    return GraphicsConfig.EnableTextureRecompression
-                        ? new FormatInfo(Format.Bc7Unorm, 4, 4, 16, 4)
-                        : new FormatInfo(Format.R8G8B8A8Unorm, 1, 1, 4, 4);
+                    return GetDecompressedRgba8Format(info.Target, caps, false);
                 }
-                else if (info.FormatInfo.Format.IsAstcSrgb())
+
+                if (info.FormatInfo.Format.IsAstcSrgb)
                 {
-                    return GraphicsConfig.EnableTextureRecompression
-                        ? new FormatInfo(Format.Bc7Srgb, 4, 4, 16, 4)
-                        : new FormatInfo(Format.R8G8B8A8Srgb, 1, 1, 4, 4);
+                    return GetDecompressedRgba8Format(info.Target, caps, true);
                 }
             }
 
             if (!HostSupportsBcFormat(info.FormatInfo.Format, info.Target, caps))
             {
+                // Formats that can be transcoded block by block to a ETC2/EAC format of the same size.
+                if (CanTranscodeBcToEtc2(info.Target, caps))
+                {
+                    switch (info.FormatInfo.Format)
+                    {
+                        case Format.Bc1RgbaSrgb:
+                            return new FormatInfo(Format.Etc2RgbPtaSrgb, 4, 4, 8, 4);
+                        case Format.Bc1RgbaUnorm:
+                            return new FormatInfo(Format.Etc2RgbPtaUnorm, 4, 4, 8, 4);
+                        case Format.Bc2Srgb:
+                        case Format.Bc3Srgb:
+                        case Format.Bc7Srgb:
+                            return new FormatInfo(Format.Etc2RgbaSrgb, 4, 4, 16, 4);
+                        case Format.Bc2Unorm:
+                        case Format.Bc3Unorm:
+                        case Format.Bc7Unorm:
+                            return new FormatInfo(Format.Etc2RgbaUnorm, 4, 4, 16, 4);
+                        case Format.Bc4Unorm:
+                            return new FormatInfo(Format.EacR11Unorm, 4, 4, 8, 1);
+                        case Format.Bc4Snorm:
+                            return new FormatInfo(Format.EacR11Snorm, 4, 4, 8, 1);
+                        case Format.Bc5Unorm:
+                            return new FormatInfo(Format.EacR11G11Unorm, 4, 4, 16, 2);
+                        case Format.Bc5Snorm:
+                            return new FormatInfo(Format.EacR11G11Snorm, 4, 4, 16, 2);
+                    }
+                }
+                
+                if (info.FormatInfo.Format == Format.Bc6HUfloat && IsRecompressionEnabled)
+                {
+                    return new FormatInfo(Format.R11G11B10Float, 1, 1, 4, 3);
+                }
+
                 switch (info.FormatInfo.Format)
                 {
                     case Format.Bc1RgbaSrgb:
                     case Format.Bc2Srgb:
                     case Format.Bc3Srgb:
                     case Format.Bc7Srgb:
-                        return new FormatInfo(Format.R8G8B8A8Srgb, 1, 1, 4, 4);
+                        return GetDecompressedRgba8Format(info.Target, caps, true);
                     case Format.Bc1RgbaUnorm:
                     case Format.Bc2Unorm:
                     case Format.Bc3Unorm:
                     case Format.Bc7Unorm:
-                        return new FormatInfo(Format.R8G8B8A8Unorm, 1, 1, 4, 4);
+                        return GetDecompressedRgba8Format(info.Target, caps, false);
                     case Format.Bc4Unorm:
                         return new FormatInfo(Format.R8Unorm, 1, 1, 1, 1);
                     case Format.Bc4Snorm:
@@ -151,12 +181,97 @@ namespace Ryujinx.Graphics.Gpu.Image
                     return new FormatInfo(Format.R8G8B8A8Unorm, 1, 1, 4, 4);
                 }
             }
-            else if (!caps.Supports5BitComponentFormat && info.FormatInfo.Format.Is16BitPacked())
+            else if (!caps.Supports5BitComponentFormat && info.FormatInfo.Format.Is16BitPacked)
             {
-                return new FormatInfo(info.FormatInfo.Format.IsBgr() ? Format.B8G8R8A8Unorm : Format.R8G8B8A8Unorm, 1, 1, 4, 4);
+                return new FormatInfo(info.FormatInfo.Format.IsBgr ? Format.B8G8R8A8Unorm : Format.R8G8B8A8Unorm, 1, 1, 4, 4);
             }
 
             return info.FormatInfo;
+        }
+
+        private static bool CanTranscodeBcToEtc2(Target target, Capabilities caps)
+        {
+            return caps.SupportsEtc2Compression && SupportsEtc2Target(target);
+        }
+
+        private static bool SupportsEtc2Target(Target target)
+        {
+            return target != Target.Texture3D;
+        }
+
+        private static bool IsRecompressionEnabled => GraphicsConfig.EnableTextureRecompression;
+
+        public static RecompressionFormat GetRecompressionFormat(Target target, Capabilities caps)
+        {
+            if (!IsRecompressionEnabled)
+            {
+                return RecompressionFormat.None;
+            }
+
+            if (target == Target.Texture3D && !caps.Supports3DTextureCompression)
+            {
+                return RecompressionFormat.None;
+            }
+
+            if (caps.SupportsBc67Compression)
+            {
+                return RecompressionFormat.Bc7;
+            }
+
+            if (caps.SupportsEtc2Compression && SupportsEtc2Target(target))
+            {
+                return RecompressionFormat.Etc2Rgba;
+            }
+
+            if (caps.SupportsAstcCompression)
+            {
+                return RecompressionFormat.Astc4x4;
+            }
+
+            return RecompressionFormat.None;
+        }
+
+
+        private static FormatInfo GetDecompressedRgba8Format(Target target, Capabilities caps, bool srgb)
+        {
+            return GetRecompressionFormat(target, caps) switch
+            {
+                RecompressionFormat.Bc7 => new FormatInfo(srgb ? Format.Bc7Srgb : Format.Bc7Unorm, 4, 4, 16, 4),
+                RecompressionFormat.Etc2Rgba => new FormatInfo(srgb ? Format.Etc2RgbaSrgb : Format.Etc2RgbaUnorm, 4, 4, 16, 4),
+                RecompressionFormat.Astc4x4 => new FormatInfo(srgb ? Format.Astc4x4Srgb : Format.Astc4x4Unorm, 4, 4, 16, 4),
+                _ => new FormatInfo(srgb ? Format.R8G8B8A8Srgb : Format.R8G8B8A8Unorm, 1, 1, 4, 4),
+            };
+        }
+
+        public static bool IsConversionSlow(TextureInfo info, Capabilities caps)
+        {
+            if (info.FormatInfo.Format.IsAstc && !caps.SupportsAstcCompression)
+            {
+                return true;
+            }
+
+            switch (info.FormatInfo.Format)
+            {
+                case Format.Bc1RgbaSrgb:
+                case Format.Bc1RgbaUnorm:
+                case Format.Bc2Srgb:
+                case Format.Bc2Unorm:
+                case Format.Bc3Srgb:
+                case Format.Bc3Unorm:
+                case Format.Bc7Srgb:
+                case Format.Bc7Unorm:
+                    return !HostSupportsBcFormat(info.FormatInfo.Format, info.Target, caps) &&
+                        (CanTranscodeBcToEtc2(info.Target, caps) ||
+                         GetRecompressionFormat(info.Target, caps) != RecompressionFormat.None);
+                case Format.Bc4Unorm:
+                case Format.Bc4Snorm:
+                case Format.Bc5Unorm:
+                case Format.Bc5Snorm:
+                    return !HostSupportsBcFormat(info.FormatInfo.Format, info.Target, caps) &&
+                        CanTranscodeBcToEtc2(info.Target, caps);
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -207,8 +322,8 @@ namespace Ryujinx.Graphics.Gpu.Image
                 return false; // Flushing this format is not supported, as it may have been converted to another host format.
             }
 
-            if (info.Target == Target.Texture2DMultisample ||
-                info.Target == Target.Texture2DMultisampleArray)
+            if (info.Target is Target.Texture2DMultisample or
+                Target.Texture2DMultisampleArray)
             {
                 return false; // Flushing multisample textures is not supported, the host does not allow getting their data.
             }
@@ -388,7 +503,7 @@ namespace Ryujinx.Graphics.Gpu.Image
 
                 return stride == rhs.Stride ? TextureViewCompatibility.CopyOnly : TextureViewCompatibility.LayoutIncompatible;
             }
-            else if (lhs.Target.IsMultisample() != rhs.Target.IsMultisample() && alignedWidthMatches && lhsAlignedSize.Height == rhsAlignedSize.Height)
+            else if (lhs.Target.IsMultisample != rhs.Target.IsMultisample && alignedWidthMatches && lhsAlignedSize.Height == rhsAlignedSize.Height)
             {
                 // Copy between multisample and non-multisample textures with mismatching size is allowed,
                 // as long aligned size matches.
@@ -644,7 +759,7 @@ namespace Ryujinx.Graphics.Gpu.Image
             FormatInfo lhsFormat = lhs.FormatInfo;
             FormatInfo rhsFormat = rhs.FormatInfo;
 
-            if (lhsFormat.Format.IsDepthOrStencil() || rhsFormat.Format.IsDepthOrStencil())
+            if (lhsFormat.Format.IsDepthOrStencil || rhsFormat.Format.IsDepthOrStencil)
             {
                 bool forSampler = flags.HasFlag(TextureSearchFlags.ForSampler);
                 bool depthAlias = flags.HasFlag(TextureSearchFlags.DepthAlias);
@@ -671,7 +786,8 @@ namespace Ryujinx.Graphics.Gpu.Image
 
             if (IsFormatHostIncompatible(lhs, caps) || IsFormatHostIncompatible(rhs, caps))
             {
-                return lhsFormat.Format == rhsFormat.Format ? TextureViewCompatibility.Full : TextureViewCompatibility.Incompatible;
+                return lhsFormat.Format == rhsFormat.Format &&
+                    ToHostCompatibleFormat(lhs, caps).Format == ToHostCompatibleFormat(rhs, caps).Format ? TextureViewCompatibility.Full : TextureViewCompatibility.Incompatible;
             }
 
             if (lhsFormat.IsCompressed && rhsFormat.IsCompressed)
@@ -758,43 +874,45 @@ namespace Ryujinx.Graphics.Gpu.Image
             {
                 case Target.Texture1D:
                 case Target.Texture1DArray:
-                    result = rhs.Target == Target.Texture1D ||
-                             rhs.Target == Target.Texture1DArray;
+                    result = rhs.Target is Target.Texture1D or
+                             Target.Texture1DArray;
                     break;
 
                 case Target.Texture2D:
-                    result = rhs.Target == Target.Texture2D ||
-                             rhs.Target == Target.Texture2DArray;
+                    result = rhs.Target is Target.Texture2D or
+                             Target.Texture2DArray;
                     break;
 
                 case Target.Texture2DArray:
-                    result = rhs.Target == Target.Texture2D ||
-                             rhs.Target == Target.Texture2DArray;
+                    result = rhs.Target is Target.Texture2D or
+                             Target.Texture2DArray;
 
-                    if (rhs.Target == Target.Cubemap || rhs.Target == Target.CubemapArray)
+                    if (rhs.Target is Target.Cubemap or Target.CubemapArray)
                     {
                         return caps.SupportsCubemapView ? TextureViewCompatibility.Full : TextureViewCompatibility.CopyOnly;
                     }
+
                     break;
                 case Target.Cubemap:
                 case Target.CubemapArray:
-                    result = rhs.Target == Target.Cubemap ||
-                             rhs.Target == Target.CubemapArray;
+                    result = rhs.Target is Target.Cubemap or
+                             Target.CubemapArray;
 
-                    if (rhs.Target == Target.Texture2D || rhs.Target == Target.Texture2DArray)
+                    if (rhs.Target is Target.Texture2D or Target.Texture2DArray)
                     {
                         return caps.SupportsCubemapView ? TextureViewCompatibility.Full : TextureViewCompatibility.CopyOnly;
                     }
+
                     break;
                 case Target.Texture2DMultisample:
                 case Target.Texture2DMultisampleArray:
-                    if (rhs.Target == Target.Texture2D || rhs.Target == Target.Texture2DArray)
+                    if (rhs.Target is Target.Texture2D or Target.Texture2DArray)
                     {
                         return TextureViewCompatibility.CopyOnly;
                     }
 
-                    result = rhs.Target == Target.Texture2DMultisample ||
-                             rhs.Target == Target.Texture2DMultisampleArray;
+                    result = rhs.Target is Target.Texture2DMultisample or
+                             Target.Texture2DMultisampleArray;
                     break;
 
                 case Target.Texture3D:

@@ -19,7 +19,7 @@ namespace Ryujinx.HLE.HOS.Services
         private int _selfId;
         private bool _isDomain;
 
-        public IpcService(ServerBase server = null)
+        public IpcService(ServerBase server = null, bool registerTipc = false)
         {
             Server = server;
 

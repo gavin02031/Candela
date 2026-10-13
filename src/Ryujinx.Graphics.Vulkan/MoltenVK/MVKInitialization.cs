@@ -11,27 +11,32 @@ namespace Ryujinx.Graphics.Vulkan.MoltenVK
     public static partial class MVKInitialization
     {
         private const string VulkanLib = "libvulkan.dylib";
+        private const uint MaxActiveMetalCommandBuffersPerQueue = 32;
 
         [LibraryImport("libMoltenVK.dylib")]
-        private static partial Result vkGetMoltenVKConfigurationMVK(IntPtr unusedInstance, out MVKConfiguration config, in IntPtr configSize);
+        private static partial Result vkGetMoltenVKConfigurationMVK(nint unusedInstance, out MVKConfiguration config, in nint configSize);
 
         [LibraryImport("libMoltenVK.dylib")]
-        private static partial Result vkSetMoltenVKConfigurationMVK(IntPtr unusedInstance, in MVKConfiguration config, in IntPtr configSize);
+        private static partial Result vkSetMoltenVKConfigurationMVK(nint unusedInstance, in MVKConfiguration config, in nint configSize);
 
         public static void Initialize()
         {
-            var configSize = (IntPtr)Marshal.SizeOf<MVKConfiguration>();
+            nint configSize = (nint)Marshal.SizeOf<MVKConfiguration>();
 
-            vkGetMoltenVKConfigurationMVK(IntPtr.Zero, out MVKConfiguration config, configSize);
+            vkGetMoltenVKConfigurationMVK(nint.Zero, out MVKConfiguration config, configSize);
 
+            // Handled by Environment Variables.
             // config.UseMetalArgumentBuffers = true;
+            config.FastMathEnabled = true;
 
-            //config.SemaphoreSupportStyle = MVKVkSemaphoreSupportStyle.MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE_SINGLE_QUEUE;
-            // config.SynchronousQueueSubmits = false;
+            config.SemaphoreSupportStyle = MVKVkSemaphoreSupportStyle.MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE_SINGLE_QUEUE;
+            config.SynchronousQueueSubmits = false;
+            config.PresentWithCommandBuffer = true;
+            config.MaxActiveMetalCommandBuffersPerQueue = MaxActiveMetalCommandBuffersPerQueue;
 
             config.ResumeLostDevice = true;
 
-            vkSetMoltenVKConfigurationMVK(IntPtr.Zero, config, configSize);
+            vkSetMoltenVKConfigurationMVK(nint.Zero, config, configSize);
         }
 
         private static string[] Resolver(string path)
@@ -41,7 +46,8 @@ namespace Ryujinx.Graphics.Vulkan.MoltenVK
                 path = path[..^VulkanLib.Length] + "libMoltenVK.dylib";
                 return [path];
             }
-            return Array.Empty<string>();
+
+            return [];
         }
 
         public static void InitializeResolver()

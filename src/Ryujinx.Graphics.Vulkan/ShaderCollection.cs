@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Ryujinx.Graphics.Vulkan
@@ -13,10 +14,12 @@ namespace Ryujinx.Graphics.Vulkan
     {
         private readonly PipelineShaderStageCreateInfo[] _infos;
         private readonly Shader[] _shaders;
+        private readonly Task[] _shaderCompileTasks;
 
         private readonly PipelineLayoutCacheEntry _plce;
 
         public PipelineLayout PipelineLayout => _plce.PipelineLayout;
+        public bool CanBindWhileIncomplete => CompilesInBackground && AllowAsyncCompileSkip;
 
         public bool HasMinimalLayout { get; }
         public bool UsePushDescriptors { get; }
@@ -26,6 +29,8 @@ namespace Ryujinx.Graphics.Vulkan
         public bool UpdateTexturesWithoutTemplate { get; }
 
         public uint Stages { get; }
+        public bool CompilesInBackground { get; }
+        public bool AllowAsyncCompileSkip { get; }
 
         public PipelineStageFlags IncoherentBufferWriteStages { get; }
         public PipelineStageFlags IncoherentTextureWriteStages { get; }
@@ -53,6 +58,10 @@ namespace Ryujinx.Graphics.Vulkan
 
         private HashTableSlim<PipelineUid, Auto<DisposablePipeline>> _graphicsPipelineCache;
         private HashTableSlim<SpecData, Auto<DisposablePipeline>> _computePipelineCache;
+        private HashTableSlim<PipelineUid, Task> _graphicsPipelineBackgroundQueue;
+        private HashTableSlim<SpecData, Task> _computePipelineBackgroundQueue;
+        private HashTableSlim<PipelineUid, byte> _graphicsPipelineBackgroundFailures;
+        private HashTableSlim<SpecData, byte> _computePipelineBackgroundFailures;
 
         private readonly VulkanRenderer _gd;
         private Device _device;
@@ -60,8 +69,14 @@ namespace Ryujinx.Graphics.Vulkan
 
         private ProgramPipelineState _state;
         private DisposableRenderPass _dummyRenderPass;
-        private readonly Task _compileTask;
+        private Task _compileTask;
+        private Task _initialPipelineCompileTask;
+        private int _backgroundCompilationDemanded;
         private bool _firstBackgroundUse;
+        private readonly object _initializeLock;
+        private readonly object _pipelineCacheLock;
+        private readonly bool _highPriorityBackgroundCompilation;
+        private bool _disposed;
 
         public ShaderCollection(
             VulkanRenderer gd,
@@ -69,10 +84,19 @@ namespace Ryujinx.Graphics.Vulkan
             ShaderSource[] shaders,
             ResourceLayout resourceLayout,
             SpecDescription[] specDescription = null,
-            bool isMinimal = false)
+            bool isMinimal = false,
+            bool compileInBackground = true,
+            bool allowAsyncCompileSkip = false,
+            bool highPriorityBackgroundCompilation = false,
+            bool startBackgroundTask = true)
         {
             _gd = gd;
             _device = device;
+            CompilesInBackground = compileInBackground;
+            AllowAsyncCompileSkip = allowAsyncCompileSkip;
+            _initializeLock = new object();
+            _pipelineCacheLock = new object();
+            _highPriorityBackgroundCompilation = highPriorityBackgroundCompilation;
 
             if (specDescription != null && specDescription.Length != shaders.Length)
             {
@@ -81,7 +105,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             gd.Shaders.Add(this);
 
-            var internalShaders = new Shader[shaders.Length];
+            Shader[] internalShaders = new Shader[shaders.Length];
 
             _infos = new PipelineShaderStageCreateInfo[shaders.Length];
 
@@ -93,7 +117,9 @@ namespace Ryujinx.Graphics.Vulkan
 
             for (int i = 0; i < shaders.Length; i++)
             {
-                var shader = new Shader(gd.Api, device, shaders[i]);
+                Shader shader = compileInBackground
+                    ? new Shader(gd, device, shaders[i], compileAsync: true, highPriorityBackgroundCompilation)
+                    : new Shader(gd.Api, device, shaders[i]);
 
                 stages |= 1u << shader.StageFlags switch
                 {
@@ -113,6 +139,13 @@ namespace Ryujinx.Graphics.Vulkan
             }
 
             _shaders = internalShaders;
+
+            _shaderCompileTasks = new Task[internalShaders.Length];
+
+            for (int i = 0; i < internalShaders.Length; i++)
+            {
+                _shaderCompileTasks[i] = internalShaders[i].CompileTask;
+            }
 
             bool usePushDescriptors = !isMinimal &&
                 VulkanConfiguration.UsePushDescriptors &&
@@ -139,7 +172,9 @@ namespace Ryujinx.Graphics.Vulkan
             // Updating buffer texture bindings using template updates crashes the Adreno driver on Windows.
             UpdateTexturesWithoutTemplate = gd.IsQualcommProprietary && usesBufferTextures;
 
-            _compileTask = Task.CompletedTask;
+            _compileTask = compileInBackground && startBackgroundTask
+                ? BackgroundShaderModuleCompilation()
+                : Task.CompletedTask;
             _firstBackgroundUse = false;
         }
 
@@ -149,18 +184,53 @@ namespace Ryujinx.Graphics.Vulkan
             ShaderSource[] sources,
             ResourceLayout resourceLayout,
             ProgramPipelineState state,
-            bool fromCache) : this(gd, device, sources, resourceLayout)
+            bool fromCache,
+            bool compileInBackground,
+            bool allowAsyncCompileSkip,
+            bool highPriorityBackgroundCompilation) : this(
+                gd,
+                device,
+                sources,
+                resourceLayout,
+                compileInBackground: compileInBackground,
+                allowAsyncCompileSkip: allowAsyncCompileSkip,
+                highPriorityBackgroundCompilation: highPriorityBackgroundCompilation,
+                startBackgroundTask: false)
         {
             _state = state;
 
-            _compileTask = BackgroundCompilation();
+            if (!compileInBackground)
+            {
+                _compileTask = BackgroundCompilation();
+                _firstBackgroundUse = !fromCache;
+                return;
+            }
+
+            bool warmUpInitialPipeline = compileInBackground;
+
+            _compileTask = compileInBackground
+                ? warmUpInitialPipeline
+                    ? BackgroundCompilation()
+                    : BackgroundShaderModuleCompilation()
+                : Task.CompletedTask;
+
+            if (warmUpInitialPipeline)
+            {
+                RegisterInitialBackgroundPipelineTask(_compileTask);
+
+                if (_compileTask.IsCompleted)
+                {
+                    ClearInitialBackgroundPipelineTask();
+                }
+            }
+
             _firstBackgroundUse = !fromCache;
         }
 
         private static bool HasPushDescriptorsBug(VulkanRenderer gd)
         {
             // Those GPUs/drivers do not work properly with push descriptors, so we must force disable them.
-            return gd.IsNvidiaPreTuring || (gd.IsIntelArc && gd.IsIntelWindows);
+            return gd.IsNvidiaPreTuring || (gd.IsIntelArc && (gd.IsIntelWindows || gd.IsIntelLinux));
         }
 
         private static bool CanUsePushDescriptors(VulkanRenderer gd, ResourceLayout layout, bool isCompute)
@@ -168,12 +238,12 @@ namespace Ryujinx.Graphics.Vulkan
             // If binding 3 is immediately used, use an alternate set of reserved bindings.
             ReadOnlyCollection<ResourceUsage> uniformUsage = layout.SetUsages[0].Usages;
             bool hasBinding3 = uniformUsage.Any(x => x.Binding == 3);
-            int[] reserved = isCompute ? Array.Empty<int>() : gd.GetPushDescriptorReservedBindings(hasBinding3);
+            int[] reserved = isCompute ? [] : gd.GetPushDescriptorReservedBindings(hasBinding3);
 
             // Can't use any of the reserved usages.
             for (int i = 0; i < uniformUsage.Count; i++)
             {
-                var binding = uniformUsage[i].Binding;
+                int binding = uniformUsage[i].Binding;
 
                 if (reserved.Contains(binding) ||
                     binding >= Constants.MaxPushDescriptorBinding ||
@@ -182,6 +252,17 @@ namespace Ryujinx.Graphics.Vulkan
                     return false;
                 }
             }
+
+            //Prevent the sum of descriptors from exceeding MaxPushDescriptors
+            int totalDescriptors = 0;
+            foreach (ResourceDescriptor desc in layout.Sets.First().Descriptors)
+            {
+                if (!reserved.Contains(desc.Binding))
+                    totalDescriptors += desc.Count;
+            }
+
+            if (totalDescriptors > gd.Capabilities.MaxPushDescriptors)
+                return false;
 
             return true;
         }
@@ -193,7 +274,7 @@ namespace Ryujinx.Graphics.Vulkan
             // The reserved bindings were selected when determining if push descriptors could be used.
             int[] reserved = gd.GetPushDescriptorReservedBindings(false);
 
-            var result = new ResourceDescriptorCollection[sets.Count];
+            ResourceDescriptorCollection[] result = new ResourceDescriptorCollection[sets.Count];
 
             for (int i = 0; i < sets.Count; i++)
             {
@@ -202,7 +283,7 @@ namespace Ryujinx.Graphics.Vulkan
                     // Push descriptors apply here. Remove reserved bindings.
                     ResourceDescriptorCollection original = sets[i];
 
-                    var pdUniforms = new ResourceDescriptor[original.Descriptors.Count];
+                    ResourceDescriptor[] pdUniforms = new ResourceDescriptor[original.Descriptors.Count];
                     int j = 0;
 
                     foreach (ResourceDescriptor descriptor in original.Descriptors)
@@ -239,7 +320,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             for (int setIndex = 0; setIndex < sets.Count; setIndex++)
             {
-                List<ResourceBindingSegment> currentSegments = new();
+                List<ResourceBindingSegment> currentSegments = [];
 
                 ResourceDescriptor currentDescriptor = default;
                 int currentCount = 0;
@@ -297,7 +378,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             for (int setIndex = 0; setIndex < setUsages.Count; setIndex++)
             {
-                List<ResourceBindingSegment> currentSegments = new();
+                List<ResourceBindingSegment> currentSegments = [];
 
                 ResourceUsage currentUsage = default;
                 int currentCount = 0;
@@ -354,7 +435,7 @@ namespace Ryujinx.Graphics.Vulkan
 
         private DescriptorSetTemplate[] BuildTemplates(bool usePushDescriptors)
         {
-            var templates = new DescriptorSetTemplate[BindingSegments.Length];
+            DescriptorSetTemplate[] templates = new DescriptorSetTemplate[BindingSegments.Length];
 
             for (int setIndex = 0; setIndex < BindingSegments.Length; setIndex++)
             {
@@ -381,7 +462,7 @@ namespace Ryujinx.Graphics.Vulkan
             return templates;
         }
 
-        private PipelineStageFlags GetPipelineStages(ResourceStages stages)
+        private static PipelineStageFlags GetPipelineStages(ResourceStages stages)
         {
             PipelineStageFlags result = 0;
 
@@ -418,14 +499,14 @@ namespace Ryujinx.Graphics.Vulkan
             return result;
         }
 
-        private (PipelineStageFlags Buffer, PipelineStageFlags Texture) BuildIncoherentStages(ReadOnlyCollection<ResourceUsageCollection> setUsages)
+        private static (PipelineStageFlags Buffer, PipelineStageFlags Texture) BuildIncoherentStages(ReadOnlyCollection<ResourceUsageCollection> setUsages)
         {
             PipelineStageFlags buffer = PipelineStageFlags.None;
             PipelineStageFlags texture = PipelineStageFlags.None;
 
-            foreach (var set in setUsages)
+            foreach (ResourceUsageCollection set in setUsages)
             {
-                foreach (var range in set.Usages)
+                foreach (ResourceUsage range in set.Usages)
                 {
                     if (range.Write)
                     {
@@ -448,37 +529,206 @@ namespace Ryujinx.Graphics.Vulkan
             return (buffer, texture);
         }
 
+        private async Task BackgroundShaderModuleCompilation()
+        {
+            await WaitForShaderModuleCompilation();
+        }
+
         private async Task BackgroundCompilation()
         {
-            await Task.WhenAll(_shaders.Select(shader => shader.CompileTask));
-
-            if (Array.Exists(_shaders, shader => shader.CompileStatus == ProgramLinkStatus.Failure))
+            if (!CompilesInBackground)
             {
-                LinkStatus = ProgramLinkStatus.Failure;
+                await Task.WhenAll(_shaderCompileTasks);
+
+                if (Array.Exists(_shaders, shader => shader.CompileStatus == ProgramLinkStatus.Failure))
+                {
+                    LinkStatus = ProgramLinkStatus.Failure;
+
+                    return;
+                }
+
+                try
+                {
+                    if (IsCompute)
+                    {
+                        CreateBackgroundComputePipeline();
+                    }
+                    else
+                    {
+                        CreateBackgroundGraphicsPipeline();
+                    }
+                }
+                catch (VulkanException e)
+                {
+                    Logger.Error?.PrintMsg(LogClass.Gpu, $"Background Compilation failed: {e.Message}");
+
+                    LinkStatus = ProgramLinkStatus.Failure;
+                }
 
                 return;
             }
 
             try
             {
-                if (IsCompute)
+                if (!await WaitForShaderModuleCompilation())
                 {
-                    CreateBackgroundComputePipeline();
+                    return;
                 }
-                else
+
+                bool demanded = Volatile.Read(ref _backgroundCompilationDemanded) != 0;
+                bool highPriority = _highPriorityBackgroundCompilation || demanded;
+
+                Task pipelineCompileTask = RunBackgroundPipelineCompile(pipelineCache =>
                 {
-                    CreateBackgroundGraphicsPipeline();
+                    if (IsCompute)
+                    {
+                        CreateBackgroundComputePipeline(pipelineCache);
+                    }
+                    else
+                    {
+                        CreateBackgroundGraphicsPipeline(pipelineCache);
+                    }
+                }, highPriority, demanded);
+
+                Volatile.Write(ref _initialPipelineCompileTask, pipelineCompileTask);
+
+                if (Volatile.Read(ref _backgroundCompilationDemanded) != 0)
+                {
+                    _gd.BackgroundCompilationScheduler.PromotePipelineCompile(pipelineCompileTask);
                 }
+
+                await pipelineCompileTask;
             }
             catch (VulkanException e)
             {
-                Logger.Error?.PrintMsg(LogClass.Gpu, $"Background Compilation failed: {e.Message}");
-
-                LinkStatus = ProgramLinkStatus.Failure;
+                LogBackgroundPipelineFailure(e);
+            }
+            catch (Exception e)
+            {
+                LogBackgroundPipelineFailure(e);
+            }
+            finally
+            {
+                Volatile.Write(ref _initialPipelineCompileTask, null);
+                ClearInitialBackgroundPipelineTask();
             }
         }
 
-        private void EnsureShadersReady()
+        public void PromoteBackgroundCompilation()
+        {
+            if (!CompilesInBackground || Interlocked.Exchange(ref _backgroundCompilationDemanded, 1) != 0)
+            {
+                return;
+            }
+
+            foreach (Shader shader in _shaders)
+            {
+                shader.PromoteCompilation();
+            }
+
+            Task pipelineCompileTask = Volatile.Read(ref _initialPipelineCompileTask);
+
+            if (pipelineCompileTask != null)
+            {
+                _gd.BackgroundCompilationScheduler.PromotePipelineCompile(pipelineCompileTask);
+            }
+        }
+
+        private void RegisterInitialBackgroundPipelineTask(Task task)
+        {
+            lock (_pipelineCacheLock)
+            {
+                if (IsCompute)
+                {
+                    SpecData key = GetInitialComputePipelineKey();
+
+                    _computePipelineBackgroundQueue ??= new();
+
+                    if (!_computePipelineBackgroundQueue.TryGetValue(ref key, out _))
+                    {
+                        _computePipelineBackgroundQueue.Add(ref key, task);
+                    }
+                }
+                else
+                {
+                    PipelineUid key = GetInitialGraphicsPipelineKey();
+
+                    _graphicsPipelineBackgroundQueue ??= new();
+
+                    if (!_graphicsPipelineBackgroundQueue.TryGetValue(ref key, out _))
+                    {
+                        _graphicsPipelineBackgroundQueue.Add(ref key, task);
+                    }
+                }
+            }
+        }
+
+        private void ClearInitialBackgroundPipelineTask()
+        {
+            lock (_pipelineCacheLock)
+            {
+                if (IsCompute)
+                {
+                    SpecData key = GetInitialComputePipelineKey();
+                    _computePipelineBackgroundQueue?.Remove(ref key);
+                }
+                else
+                {
+                    PipelineUid key = GetInitialGraphicsPipelineKey();
+                    _graphicsPipelineBackgroundQueue?.Remove(ref key);
+                }
+            }
+        }
+
+        private static SpecData GetInitialComputePipelineKey()
+        {
+            return SpecData.Empty;
+        }
+
+        private PipelineUid GetInitialGraphicsPipelineKey()
+        {
+            PipelineState pipeline = _state.ToVulkanPipelineState(_gd);
+
+            try
+            {
+                pipeline.StagesCount = (uint)_shaders.Length;
+
+                return pipeline.Internal;
+            }
+            finally
+            {
+                pipeline.Dispose();
+            }
+        }
+
+        private Task RunBackgroundPipelineCompile(Action<PipelineCache> compileAction, bool highPriority, bool demanded = false)
+        {
+            return _gd.BackgroundCompilationScheduler.SchedulePipelineCompile(compileAction, highPriority, demanded);
+        }
+
+        private void LogBackgroundPipelineFailure(Exception exception)
+        {
+            Logger.Warning?.PrintMsg(LogClass.Gpu, $"Background shader pipeline warm-up failed: {exception.Message}");
+        }
+
+        private async Task<bool> WaitForShaderModuleCompilation()
+        {
+            try
+            {
+                await Task.WhenAll(_shaderCompileTasks);
+            }
+            catch (Exception e)
+            {
+                Logger.Error?.PrintMsg(LogClass.Gpu, $"Shader module background compilation failed: {e.Message}");
+                LinkStatus = ProgramLinkStatus.Failure;
+
+                return false;
+            }
+
+            return EnsureShadersReady(blocking: true);
+        }
+
+        private void EnsureShadersReadyLegacy()
         {
             if (!_initialized)
             {
@@ -488,7 +738,7 @@ namespace Ryujinx.Graphics.Vulkan
 
                 for (int i = 0; i < _shaders.Length; i++)
                 {
-                    var shader = _shaders[i];
+                    Shader shader = _shaders[i];
 
                     if (shader.CompileStatus != ProgramLinkStatus.Success)
                     {
@@ -498,7 +748,6 @@ namespace Ryujinx.Graphics.Vulkan
                     _infos[i] = shader.GetInfo();
                 }
 
-                // If the link status was already set as failure by background compilation, prefer that decision.
                 if (LinkStatus != ProgramLinkStatus.Failure)
                 {
                     LinkStatus = resultStatus;
@@ -508,11 +757,116 @@ namespace Ryujinx.Graphics.Vulkan
             }
         }
 
+        private bool EnsureShadersReady(bool blocking)
+        {
+            if (_initialized)
+            {
+                return LinkStatus == ProgramLinkStatus.Success;
+            }
+
+            if (LinkStatus == ProgramLinkStatus.Failure)
+            {
+                return false;
+            }
+
+            if (!blocking)
+            {
+                for (int i = 0; i < _shaders.Length; i++)
+                {
+                    if (_shaders[i].CompileStatus == ProgramLinkStatus.Incomplete)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            lock (_initializeLock)
+            {
+                if (_initialized)
+                {
+                    return LinkStatus == ProgramLinkStatus.Success;
+                }
+
+                ProgramLinkStatus resultStatus = ProgramLinkStatus.Success;
+
+                for (int i = 0; i < _shaders.Length; i++)
+                {
+                    Shader shader = _shaders[i];
+
+                    if (shader.CompileStatus == ProgramLinkStatus.Incomplete)
+                    {
+                        if (!blocking)
+                        {
+                            return false;
+                        }
+
+                        shader.WaitForCompile();
+                    }
+
+                    if (shader.CompileStatus != ProgramLinkStatus.Success)
+                    {
+                        resultStatus = ProgramLinkStatus.Failure;
+                    }
+                }
+
+                if (resultStatus == ProgramLinkStatus.Success)
+                {
+                    for (int i = 0; i < _shaders.Length; i++)
+                    {
+                        _infos[i] = _shaders[i].GetInfo();
+                    }
+                }
+
+                LinkStatus = resultStatus;
+                _initialized = true;
+
+                return resultStatus == ProgramLinkStatus.Success;
+            }
+        }
+
+        public bool TryGetInfos(out PipelineShaderStageCreateInfo[] infos, bool blocking)
+        {
+            if (blocking)
+            {
+                PromoteBackgroundCompilation();
+            }
+
+            if (EnsureShadersReady(blocking))
+            {
+                infos = _infos;
+                return true;
+            }
+
+            infos = null;
+            return false;
+        }
+
+        public bool WaitForShaderModules(int timeoutMs)
+        {
+            PromoteBackgroundCompilation();
+
+            try
+            {
+                return Task.WaitAll(_shaderCompileTasks, timeoutMs);
+            }
+            catch (AggregateException)
+            {
+                return true;
+            }
+        }
+
         public PipelineShaderStageCreateInfo[] GetInfos()
         {
-            EnsureShadersReady();
+            if (!CompilesInBackground)
+            {
+                EnsureShadersReadyLegacy();
 
-            return _infos;
+                return _infos;
+            }
+
+            TryGetInfos(out PipelineShaderStageCreateInfo[] infos, blocking: true);
+
+            return infos;
         }
 
         protected DisposableRenderPass CreateDummyRenderPass()
@@ -525,7 +879,7 @@ namespace Ryujinx.Graphics.Vulkan
             return _dummyRenderPass = _state.ToRenderPass(_gd, _device);
         }
 
-        public void CreateBackgroundComputePipeline()
+        public void CreateBackgroundComputePipeline(PipelineCache backgroundCache = default)
         {
             PipelineState pipeline = new();
             pipeline.Initialize();
@@ -534,11 +888,24 @@ namespace Ryujinx.Graphics.Vulkan
             pipeline.StagesCount = 1;
             pipeline.PipelineLayout = PipelineLayout;
 
-            pipeline.CreateComputePipeline(_gd, _device, this, (_gd.Pipeline as PipelineBase).PipelineCache);
+            if (CompilesInBackground)
+            {
+                pipeline.CreateComputePipeline(
+                    _gd,
+                    _device,
+                    this,
+                    backgroundCache,
+                    throwOnError: false,
+                    cachePipelineFailure: false);
+            }
+            else
+            {
+                pipeline.CreateComputePipeline(_gd, _device, this, (_gd.Pipeline as PipelineBase).PipelineCache);
+            }
             pipeline.Dispose();
         }
 
-        public void CreateBackgroundGraphicsPipeline()
+        public void CreateBackgroundGraphicsPipeline(PipelineCache backgroundCache = default)
         {
             // To compile shaders in the background in Vulkan, we need to create valid pipelines using the shader modules.
             // The GPU provides pipeline state via the GAL that can be converted into our internal Vulkan pipeline state.
@@ -547,12 +914,12 @@ namespace Ryujinx.Graphics.Vulkan
 
             // First, we need to create a render pass object compatible with the one that will be used at runtime.
             // The active attachment formats have been provided by the abstraction layer.
-            var renderPass = CreateDummyRenderPass();
+            DisposableRenderPass renderPass = CreateDummyRenderPass();
 
             PipelineState pipeline = _state.ToVulkanPipelineState(_gd);
 
             // Copy the shader stage info to the pipeline.
-            var stages = pipeline.Stages.AsSpan();
+            Span<PipelineShaderStageCreateInfo> stages = pipeline.Stages.AsSpan();
 
             for (int i = 0; i < _shaders.Length; i++)
             {
@@ -563,28 +930,61 @@ namespace Ryujinx.Graphics.Vulkan
             pipeline.StagesCount = (uint)_shaders.Length;
             pipeline.PipelineLayout = PipelineLayout;
 
-            pipeline.CreateGraphicsPipeline(_gd, _device, this, (_gd.Pipeline as PipelineBase).PipelineCache, renderPass.Value, throwOnError: true);
+            if (CompilesInBackground)
+            {
+                pipeline.CreateGraphicsPipeline(
+                    _gd,
+                    _device,
+                    this,
+                    backgroundCache,
+                    renderPass.Value,
+                    throwOnError: false,
+                    cachePipelineFailure: false);
+            }
+            else
+            {
+                pipeline.CreateGraphicsPipeline(_gd, _device, this, (_gd.Pipeline as PipelineBase).PipelineCache, renderPass.Value, throwOnError: true);
+            }
             pipeline.Dispose();
         }
 
         public ProgramLinkStatus CheckProgramLink(bool blocking)
         {
-            if (LinkStatus == ProgramLinkStatus.Incomplete)
+            if (!CompilesInBackground)
             {
-                ProgramLinkStatus resultStatus = ProgramLinkStatus.Success;
-
-                foreach (Shader shader in _shaders)
+                if (LinkStatus == ProgramLinkStatus.Incomplete)
                 {
-                    if (shader.CompileStatus == ProgramLinkStatus.Incomplete)
+                    ProgramLinkStatus resultStatus = ProgramLinkStatus.Success;
+
+                    foreach (Shader shader in _shaders)
+                    {
+                        if (shader.CompileStatus == ProgramLinkStatus.Incomplete)
+                        {
+                            if (blocking)
+                            {
+                                shader.WaitForCompile();
+
+                                if (shader.CompileStatus != ProgramLinkStatus.Success)
+                                {
+                                    resultStatus = ProgramLinkStatus.Failure;
+                                }
+                            }
+                            else
+                            {
+                                return ProgramLinkStatus.Incomplete;
+                            }
+                        }
+                    }
+
+                    if (!_compileTask.IsCompleted)
                     {
                         if (blocking)
                         {
-                            // Wait for this shader to finish compiling.
-                            shader.WaitForCompile();
+                            _compileTask.Wait();
 
-                            if (shader.CompileStatus != ProgramLinkStatus.Success)
+                            if (LinkStatus == ProgramLinkStatus.Failure)
                             {
-                                resultStatus = ProgramLinkStatus.Failure;
+                                return ProgramLinkStatus.Failure;
                             }
                         }
                         else
@@ -592,26 +992,33 @@ namespace Ryujinx.Graphics.Vulkan
                             return ProgramLinkStatus.Incomplete;
                         }
                     }
+
+                    return resultStatus;
                 }
 
-                if (!_compileTask.IsCompleted)
+                return LinkStatus;
+            }
+
+            if (!EnsureShadersReady(blocking))
+            {
+                return LinkStatus == ProgramLinkStatus.Failure ? ProgramLinkStatus.Failure : ProgramLinkStatus.Incomplete;
+            }
+
+            if (!_compileTask.IsCompleted)
+            {
+                if (blocking)
                 {
-                    if (blocking)
-                    {
-                        _compileTask.Wait();
+                    _compileTask.Wait();
 
-                        if (LinkStatus == ProgramLinkStatus.Failure)
-                        {
-                            return ProgramLinkStatus.Failure;
-                        }
-                    }
-                    else
+                    if (LinkStatus == ProgramLinkStatus.Failure)
                     {
-                        return ProgramLinkStatus.Incomplete;
+                        return ProgramLinkStatus.Failure;
                     }
                 }
-
-                return resultStatus;
+                else
+                {
+                    return ProgramLinkStatus.Incomplete;
+                }
             }
 
             return LinkStatus;
@@ -627,54 +1034,338 @@ namespace Ryujinx.Graphics.Vulkan
             return _plce.GetPushDescriptorTemplate(IsCompute ? PipelineBindPoint.Compute : PipelineBindPoint.Graphics, updateMask);
         }
 
-        public void AddComputePipeline(ref SpecData key, Auto<DisposablePipeline> pipeline)
+        public Auto<DisposablePipeline> AddComputePipeline(ref SpecData key, Auto<DisposablePipeline> pipeline)
         {
-            (_computePipelineCache ??= new()).Add(ref key, pipeline);
+            lock (_pipelineCacheLock)
+            {
+                _computePipelineBackgroundFailures?.Remove(ref key);
+                _computePipelineCache ??= new();
+
+                if (_computePipelineCache.TryGetValue(ref key, out Auto<DisposablePipeline> existing))
+                {
+                    if (existing != pipeline)
+                    {
+                        pipeline?.Dispose();
+                    }
+
+                    return existing;
+                }
+
+                _computePipelineCache.Add(ref key, pipeline);
+
+                return pipeline;
+            }
         }
 
-        public void AddGraphicsPipeline(ref PipelineUid key, Auto<DisposablePipeline> pipeline)
+        public Auto<DisposablePipeline> AddGraphicsPipeline(ref PipelineUid key, Auto<DisposablePipeline> pipeline)
         {
-            (_graphicsPipelineCache ??= new()).Add(ref key, pipeline);
+            lock (_pipelineCacheLock)
+            {
+                _graphicsPipelineBackgroundFailures?.Remove(ref key);
+                _graphicsPipelineCache ??= new();
+
+                if (_graphicsPipelineCache.TryGetValue(ref key, out Auto<DisposablePipeline> existing))
+                {
+                    if (existing != pipeline)
+                    {
+                        pipeline?.Dispose();
+                    }
+
+                    return existing;
+                }
+
+                _graphicsPipelineCache.Add(ref key, pipeline);
+
+                return pipeline;
+            }
         }
 
         public bool TryGetComputePipeline(ref SpecData key, out Auto<DisposablePipeline> pipeline)
         {
-            if (_computePipelineCache == null)
+            lock (_pipelineCacheLock)
             {
-                pipeline = default;
-                return false;
-            }
+                if (_computePipelineCache == null)
+                {
+                    pipeline = default;
+                    return false;
+                }
 
-            if (_computePipelineCache.TryGetValue(ref key, out pipeline))
-            {
-                return true;
+                return _computePipelineCache.TryGetValue(ref key, out pipeline);
             }
-
-            return false;
         }
 
         public bool TryGetGraphicsPipeline(ref PipelineUid key, out Auto<DisposablePipeline> pipeline)
         {
-            if (_graphicsPipelineCache == null)
+            lock (_pipelineCacheLock)
             {
-                pipeline = default;
-                return false;
-            }
-
-            if (!_graphicsPipelineCache.TryGetValue(ref key, out pipeline))
-            {
-                if (_firstBackgroundUse)
+                if (_graphicsPipelineCache == null)
                 {
-                    Logger.Warning?.Print(LogClass.Gpu, "Background pipeline compile missed on draw - incorrect pipeline state?");
+                    pipeline = default;
+                    return false;
+                }
+
+                if (!_graphicsPipelineCache.TryGetValue(ref key, out pipeline))
+                {
+                    if (!CompilesInBackground && _firstBackgroundUse)
+                    {
+                        Logger.Warning?.Print(LogClass.Gpu, "Background pipeline compile missed on draw - incorrect pipeline state?");
+                        _firstBackgroundUse = false;
+                    }
+
+                    return false;
+                }
+
+                if (!CompilesInBackground)
+                {
                     _firstBackgroundUse = false;
                 }
 
+                return true;
+            }
+        }
+
+        public bool TryWaitForBackgroundGraphicsPipeline(
+            ref PipelineUid key,
+            int timeoutMs,
+            out Auto<DisposablePipeline> pipeline)
+        {
+            Task task = null;
+
+            lock (_pipelineCacheLock)
+            {
+                _graphicsPipelineBackgroundQueue?.TryGetValue(ref key, out task);
+            }
+
+            if (task != null && !task.IsCompleted)
+            {
+                try
+                {
+                    task.Wait(timeoutMs);
+                }
+                catch (AggregateException)
+                {
+                    // The normal pipeline failure path handles a failed background task.
+                }
+            }
+
+            return TryGetGraphicsPipeline(ref key, out pipeline) && pipeline != null;
+        }
+
+        public bool QueueBackgroundComputePipeline(ref PipelineState state)
+        {
+            if (!CompilesInBackground || !AllowAsyncCompileSkip)
+            {
                 return false;
             }
 
-            _firstBackgroundUse = false;
+            SpecData key = state.SpecializationData;
+            Task task;
+
+            lock (_pipelineCacheLock)
+            {
+                if (_disposed ||
+                    (_computePipelineCache != null && _computePipelineCache.TryGetValue(ref key, out _)) ||
+                    (_computePipelineBackgroundFailures != null && _computePipelineBackgroundFailures.TryGetValue(ref key, out _)))
+                {
+                    return false;
+                }
+
+                if (_computePipelineBackgroundQueue != null &&
+                    _computePipelineBackgroundQueue.TryGetValue(ref key, out _))
+                {
+                    return true;
+                }
+
+                task = CompileQueuedComputePipeline(state.Clone(), key);
+                (_computePipelineBackgroundQueue ??= new()).Add(ref key, task);
+            }
 
             return true;
+        }
+
+        private async Task CompileQueuedComputePipeline(PipelineState state, SpecData key)
+        {
+            Auto<DisposablePipeline> pipeline = null;
+
+            try
+            {
+                await RunBackgroundPipelineCompile(pipelineCache =>
+                {
+                    pipeline = state.CreateComputePipeline(
+                        _gd,
+                        _device,
+                        this,
+                        pipelineCache,
+                        throwOnError: false,
+                        cachePipelineFailure: false);
+                }, highPriority: true, demanded: true);
+
+                if (pipeline == null)
+                {
+                    AddBackgroundComputePipelineFailure(ref key);
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Debug?.PrintMsg(LogClass.Gpu, $"Background compute pipeline compilation failed: {e.Message}");
+                AddBackgroundComputePipelineFailure(ref key);
+            }
+            finally
+            {
+                state.Dispose();
+
+                lock (_pipelineCacheLock)
+                {
+                    _computePipelineBackgroundQueue?.Remove(ref key);
+                }
+            }
+        }
+
+        private void AddBackgroundComputePipelineFailure(ref SpecData key)
+        {
+            lock (_pipelineCacheLock)
+            {
+                if (_computePipelineCache == null || !_computePipelineCache.TryGetValue(ref key, out _))
+                {
+                    _computePipelineBackgroundFailures ??= new();
+
+                    if (!_computePipelineBackgroundFailures.TryGetValue(ref key, out _))
+                    {
+                        _computePipelineBackgroundFailures.Add(ref key, 0);
+                    }
+                }
+            }
+        }
+
+        public bool QueueBackgroundGraphicsPipeline(
+            ref PipelineState state,
+            Auto<DisposableRenderPass> renderPass)
+        {
+            if (!CompilesInBackground || !AllowAsyncCompileSkip)
+            {
+                return false;
+            }
+
+            PipelineUid key = state.Internal;
+            Task task;
+
+            lock (_pipelineCacheLock)
+            {
+                if (_disposed ||
+                    (_graphicsPipelineCache != null && _graphicsPipelineCache.TryGetValue(ref key, out _)) ||
+                    (_graphicsPipelineBackgroundFailures != null && _graphicsPipelineBackgroundFailures.TryGetValue(ref key, out _)))
+                {
+                    return false;
+                }
+
+                if (_graphicsPipelineBackgroundQueue != null &&
+                    _graphicsPipelineBackgroundQueue.TryGetValue(ref key, out _))
+                {
+                    return true;
+                }
+
+                if (!renderPass.TryIncrementReferenceCount())
+                {
+                    return false;
+                }
+
+                task = CompileQueuedGraphicsPipeline(state.Clone(), renderPass, key);
+                (_graphicsPipelineBackgroundQueue ??= new()).Add(ref key, task);
+            }
+
+            return true;
+        }
+
+        private async Task CompileQueuedGraphicsPipeline(
+            PipelineState state,
+            Auto<DisposableRenderPass> renderPass,
+            PipelineUid key)
+        {
+            Auto<DisposablePipeline> pipeline = null;
+
+            try
+            {
+                await RunBackgroundPipelineCompile(pipelineCache =>
+                {
+                    pipeline = state.CreateGraphicsPipeline(
+                        _gd,
+                        _device,
+                        this,
+                        pipelineCache,
+                        renderPass.GetUnsafe().Value,
+                        throwOnError: false,
+                        cachePipelineFailure: false);
+                }, highPriority: true, demanded: true);
+
+                if (pipeline == null)
+                {
+                    AddBackgroundGraphicsPipelineFailure(ref key);
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Debug?.PrintMsg(LogClass.Gpu, $"Background graphics pipeline compilation failed: {e.Message}");
+                AddBackgroundGraphicsPipelineFailure(ref key);
+            }
+            finally
+            {
+                state.Dispose();
+                renderPass.DecrementReferenceCount();
+
+                lock (_pipelineCacheLock)
+                {
+                    _graphicsPipelineBackgroundQueue?.Remove(ref key);
+                }
+            }
+        }
+
+        private void AddBackgroundGraphicsPipelineFailure(ref PipelineUid key)
+        {
+            lock (_pipelineCacheLock)
+            {
+                if (_graphicsPipelineCache == null || !_graphicsPipelineCache.TryGetValue(ref key, out _))
+                {
+                    _graphicsPipelineBackgroundFailures ??= new();
+
+                    if (!_graphicsPipelineBackgroundFailures.TryGetValue(ref key, out _))
+                    {
+                        _graphicsPipelineBackgroundFailures.Add(ref key, 0);
+                    }
+                }
+            }
+        }
+
+        public void WaitForBackgroundCompilation()
+        {
+            try
+            {
+                _compileTask.Wait();
+                WaitForBackgroundPipelineQueue();
+            }
+            catch (AggregateException e)
+            {
+                Logger.Warning?.PrintMsg(LogClass.Gpu, $"Background shader compilation failed: {e.InnerException?.Message ?? e.Message}");
+            }
+        }
+
+        private void WaitForBackgroundPipelineQueue()
+        {
+            Task[] tasks;
+
+            lock (_pipelineCacheLock)
+            {
+                Task[] graphicsTasks = _graphicsPipelineBackgroundQueue?.Values.ToArray() ?? [];
+                Task[] computeTasks = _computePipelineBackgroundQueue?.Values.ToArray() ?? [];
+
+                tasks = new Task[graphicsTasks.Length + computeTasks.Length];
+                graphicsTasks.CopyTo(tasks, 0);
+                computeTasks.CopyTo(tasks, graphicsTasks.Length);
+            }
+
+            if (tasks.Length != 0)
+            {
+                Task.WaitAll(tasks);
+            }
         }
 
         public void UpdateDescriptorCacheCommandBufferIndex(int commandBufferIndex)
@@ -711,9 +1402,26 @@ namespace Ryujinx.Graphics.Vulkan
         {
             if (disposing)
             {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+
                 if (!_gd.Shaders.Remove(this))
                 {
                     return;
+                }
+
+                try
+                {
+                    _compileTask.Wait();
+                    WaitForBackgroundPipelineQueue();
+                }
+                catch (AggregateException e)
+                {
+                    Logger.Warning?.PrintMsg(LogClass.Gpu, $"Background shader compilation failed during disposal: {e.InnerException?.Message ?? e.Message}");
                 }
 
                 for (int i = 0; i < _shaders.Length; i++)
@@ -721,19 +1429,22 @@ namespace Ryujinx.Graphics.Vulkan
                     _shaders[i].Dispose();
                 }
 
-                if (_graphicsPipelineCache != null)
+                lock (_pipelineCacheLock)
                 {
-                    foreach (Auto<DisposablePipeline> pipeline in _graphicsPipelineCache.Values)
+                    if (_graphicsPipelineCache != null)
                     {
-                        pipeline?.Dispose();
+                        foreach (Auto<DisposablePipeline> pipeline in _graphicsPipelineCache.Values)
+                        {
+                            pipeline?.Dispose();
+                        }
                     }
-                }
 
-                if (_computePipelineCache != null)
-                {
-                    foreach (Auto<DisposablePipeline> pipeline in _computePipelineCache.Values)
+                    if (_computePipelineCache != null)
                     {
-                        pipeline.Dispose();
+                        foreach (Auto<DisposablePipeline> pipeline in _computePipelineCache.Values)
+                        {
+                            pipeline?.Dispose();
+                        }
                     }
                 }
 

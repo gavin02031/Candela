@@ -20,12 +20,15 @@ namespace Ryujinx.HLE.Exceptions
         public IpcMessage Request { get; }
         private string MethodName { get; }
 
+        private readonly byte[] _requestRawData;
+
         public ServiceNotImplementedException(IpcService service, ServiceCtx context, string message = "The service call is not implemented.", [CallerMemberName] string methodName = null) : base(message)
         {
             Service = service;
             Context = context;
             Request = context.Request;
             MethodName = methodName;
+            _requestRawData = context.Request.RawData.ToArray();
         }
 
         public ServiceNotImplementedException(IpcService service, ServiceCtx context, string message, Exception inner, [CallerMemberName] string methodName = null) : base(message, inner)
@@ -34,6 +37,7 @@ namespace Ryujinx.HLE.Exceptions
             Context = context;
             Request = context.Request;
             MethodName = methodName;
+            _requestRawData = context.Request.RawData.ToArray();
         }
 
         public override string Message
@@ -121,9 +125,30 @@ namespace Ryujinx.HLE.Exceptions
             }
 
             sb.AppendLine("Raw Request Data:");
-            sb.Append(HexUtils.HexTable(Request.RawData));
+            sb.Append(HexUtils.HexTable(_requestRawData));
 
             return sb.ToString();
+        }
+
+        private static (Type, MethodBase) WalkStackTrace(StackTrace trace)
+        {
+            int i = 0;
+
+            StackFrame frame;
+
+            // Find the IIpcService method that threw this exception
+            while ((frame = trace.GetFrame(i++)) != null)
+            {
+                MethodBase method = frame.GetMethod();
+                Type declType = method.DeclaringType;
+
+                if (typeof(IpcService).IsAssignableFrom(declType))
+                {
+                    return (declType, method);
+                }
+            }
+
+            return (null, null);
         }
     }
 }

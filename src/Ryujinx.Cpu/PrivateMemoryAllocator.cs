@@ -33,22 +33,23 @@ namespace Ryujinx.Cpu
             }
 
             private readonly List<Range> _freeRanges;
+            private bool _hasDiscardedRanges;
 
             public Block(MemoryBlock memory, ulong size)
             {
                 Memory = memory;
                 Size = size;
-                _freeRanges = new List<Range>
-                {
-                    new Range(0, size),
-                };
+                _freeRanges =
+                [
+                    new(0, size)
+                ];
             }
 
             public ulong Allocate(ulong size, ulong alignment)
             {
                 for (int i = 0; i < _freeRanges.Count; i++)
                 {
-                    var range = _freeRanges[i];
+                    Range range = _freeRanges[i];
 
                     ulong alignedOffset = BitUtils.AlignUp(range.Offset, alignment);
                     ulong sizeDelta = alignedOffset - range.Offset;
@@ -70,6 +71,11 @@ namespace Ryujinx.Cpu
                             InsertFreeRange(endOffset - remainingSize, remainingSize);
                         }
 
+                        if (_hasDiscardedRanges)
+                        {
+                            Reinstate(alignedOffset, size);
+                        }
+
                         return alignedOffset;
                     }
                 }
@@ -82,9 +88,58 @@ namespace Ryujinx.Cpu
                 InsertFreeRangeComingled(offset, size);
             }
 
+            public ulong Discard(ulong offset, ulong size)
+            {
+                ulong alignment = MemoryBlock.GetPageSize();
+                ulong endOffset = offset + size;
+
+                offset = BitUtils.AlignUp(offset, alignment);
+                endOffset = BitUtils.AlignDown(endOffset, alignment);
+
+                if (endOffset <= offset)
+                {
+                    return 0;
+                }
+
+                ulong alignedSize = endOffset - offset;
+
+                if (alignedSize < MemoryReclaim.PrivateAllocatorMinimumSize)
+                {
+                    return 0;
+                }
+
+                if (Memory == null || !Memory.TryDiscard(offset, alignedSize))
+                {
+                    return 0;
+                }
+
+                _hasDiscardedRanges = true;
+
+                MemoryReclaim.AddPrivateAllocatorBytes(alignedSize);
+
+                return alignedSize;
+            }
+            
+            private void Reinstate(ulong offset, ulong size)
+            {
+                Memory.TryUndiscard(offset, size);
+
+                ulong remaining = size;
+
+                while (remaining != 0)
+                {
+                    int chunkSize = (int)Math.Min(remaining, int.MaxValue);
+
+                    Memory.GetSpan(offset, chunkSize).Clear();
+
+                    offset += (ulong)chunkSize;
+                    remaining -= (ulong)chunkSize;
+                }
+            }
+
             private void InsertFreeRange(ulong offset, ulong size)
             {
-                var range = new Range(offset, size);
+                Range range = new(offset, size);
                 int index = _freeRanges.BinarySearch(range);
                 if (index < 0)
                 {
@@ -97,7 +152,7 @@ namespace Ryujinx.Cpu
             private void InsertFreeRangeComingled(ulong offset, ulong size)
             {
                 ulong endOffset = offset + size;
-                var range = new Range(offset, size);
+                Range range = new(offset, size);
                 int index = _freeRanges.BinarySearch(range);
                 if (index < 0)
                 {
@@ -149,7 +204,7 @@ namespace Ryujinx.Cpu
 
         public PrivateMemoryAllocation Allocate(ulong size, ulong alignment)
         {
-            var allocation = Allocate(size, alignment, CreateBlock);
+            Allocation allocation = Allocate(size, alignment, CreateBlock);
 
             return new PrivateMemoryAllocation(this, allocation.Block, allocation.Offset, allocation.Size);
         }
@@ -183,11 +238,20 @@ namespace Ryujinx.Cpu
         private readonly ulong _blockAlignment;
         private readonly MemoryAllocationFlags _allocationFlags;
 
+        /// <summary>
+        /// Whether blocks from this allocator actually own the memory behind them, and so can hand it back when a range inside them falls out of use.
+        /// </summary>
+        private readonly bool _ownsBackingMemory;
+
         public PrivateMemoryAllocatorImpl(ulong blockAlignment, MemoryAllocationFlags allocationFlags)
         {
-            _blocks = new List<T>();
+            _blocks = [];
             _blockAlignment = blockAlignment;
             _allocationFlags = allocationFlags;
+            _ownsBackingMemory =
+                allocationFlags.HasFlag(MemoryAllocationFlags.Mirrorable) &&
+                !allocationFlags.HasFlag(MemoryAllocationFlags.Reserve) &&
+                !allocationFlags.HasFlag(MemoryAllocationFlags.NoMap);
         }
 
         protected Allocation Allocate(ulong size, ulong alignment, Func<MemoryBlock, ulong, T> createBlock)
@@ -200,7 +264,7 @@ namespace Ryujinx.Cpu
 
             for (int i = 0; i < _blocks.Count; i++)
             {
-                var block = _blocks[i];
+                T block = _blocks[i];
 
                 if (block.Size >= size)
                 {
@@ -214,8 +278,8 @@ namespace Ryujinx.Cpu
 
             ulong blockAlignedSize = BitUtils.AlignUp(size, _blockAlignment);
 
-            var memory = new MemoryBlock(blockAlignedSize, _allocationFlags);
-            var newBlock = createBlock(memory, blockAlignedSize);
+            MemoryBlock memory = new(blockAlignedSize, _allocationFlags);
+            T newBlock = createBlock(memory, blockAlignedSize);
 
             InsertBlock(newBlock);
 
@@ -241,6 +305,10 @@ namespace Ryujinx.Cpu
                 }
 
                 block.Destroy();
+            }
+            else if (_ownsBackingMemory && MemoryReclaim.PrivateAllocatorEnabled)
+            {
+                block.Discard(offset, size);
             }
         }
 

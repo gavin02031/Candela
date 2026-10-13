@@ -10,33 +10,32 @@ using System.Runtime.InteropServices;
 
 namespace Ryujinx.Cpu.LightningJit
 {
-    delegate void DispatcherFunction(IntPtr nativeContext, ulong startAddress);
+    delegate void DispatcherFunction(nint nativeContext, ulong startAddress);
 
     /// <summary>
     /// Represents a stub manager.
     /// </summary>
     class TranslatorStubs : IDisposable
     {
-        private delegate ulong GetFunctionAddressDelegate(IntPtr framePointer, ulong address);
+        private delegate ulong GetFunctionAddressDelegate(nint framePointer, ulong address);
 
-        private readonly Lazy<IntPtr> _slowDispatchStub;
+        private readonly Lazy<nint> _slowDispatchStub;
 
         private bool _disposed;
 
-        private readonly AddressTable<ulong> _functionTable;
+        private readonly IAddressTable<ulong> _functionTable;
         private readonly NoWxCache _noWxCache;
-        private readonly DualMappedNoWxCache _dualMappedCache;
-
+        private readonly DualMappedNoWxCache _dualMappedNoWxCache;
         private readonly GetFunctionAddressDelegate _getFunctionAddressRef;
-        private readonly IntPtr _getFunctionAddress;
-        private readonly Lazy<IntPtr> _dispatchStub;
+        private readonly nint _getFunctionAddress;
+        private readonly Lazy<nint> _dispatchStub;
         private readonly Lazy<DispatcherFunction> _dispatchLoop;
 
         /// <summary>
         /// Gets the dispatch stub.
         /// </summary>
         /// <exception cref="ObjectDisposedException"><see cref="TranslatorStubs"/> instance was disposed</exception>
-        public IntPtr DispatchStub
+        public nint DispatchStub
         {
             get
             {
@@ -50,7 +49,7 @@ namespace Ryujinx.Cpu.LightningJit
         /// Gets the slow dispatch stub.
         /// </summary>
         /// <exception cref="ObjectDisposedException"><see cref="TranslatorStubs"/> instance was disposed</exception>
-        public IntPtr SlowDispatchStub
+        public nint SlowDispatchStub
         {
             get
             {
@@ -81,7 +80,7 @@ namespace Ryujinx.Cpu.LightningJit
         /// <param name="functionTable">Function table used to store pointers to the functions that the guest code will call</param>
         /// <param name="noWxCache">Cache used on platforms that enforce W^X, otherwise should be null</param>
         /// <exception cref="ArgumentNullException"><paramref name="translator"/> is null</exception>
-        public TranslatorStubs(AddressTable<ulong> functionTable, NoWxCache noWxCache)
+        public TranslatorStubs(IAddressTable<ulong> functionTable, NoWxCache noWxCache)
         {
             ArgumentNullException.ThrowIfNull(functionTable);
 
@@ -99,31 +98,14 @@ namespace Ryujinx.Cpu.LightningJit
         /// <see cref="Translator"/> instance.
         /// </summary>
         /// <param name="functionTable">Function table used to store pointers to the functions that the guest code will call</param>
-        /// <param name="writeZeroCache">Cache used on iOS versions that need a debugger to make a debug map</param>
+        /// <param name="noWxCache">Cache used on platforms that enforce W^X, otherwise should be null</param>
         /// <exception cref="ArgumentNullException"><paramref name="translator"/> is null</exception>
-        public TranslatorStubs(AddressTable<ulong> functionTable, DualMappedNoWxCache dualMappedCache)
+        public TranslatorStubs(IAddressTable<ulong> functionTable, DualMappedNoWxCache dualMappedNoWxCache)
         {
             ArgumentNullException.ThrowIfNull(functionTable);
 
             _functionTable = functionTable;
-            _dualMappedCache = dualMappedCache;
-            _getFunctionAddressRef = NativeInterface.GetFunctionAddress;
-            _getFunctionAddress = Marshal.GetFunctionPointerForDelegate(_getFunctionAddressRef);
-            _slowDispatchStub = new(GenerateSlowDispatchStub, isThreadSafe: true);
-            _dispatchStub = new(GenerateDispatchStub, isThreadSafe: true);
-            _dispatchLoop = new(GenerateDispatchLoop, isThreadSafe: true);
-        }
-
-                /// <summary>
-        /// Initializes a new instance of the <see cref="TranslatorStubs"/> class with the specified
-        /// <see cref="Translator"/> instance.
-        /// </summary>
-        /// <param name="functionTable">Function table used to store pointers to the functions that the guest code will call</param>
-        public TranslatorStubs(AddressTable<ulong> functionTable)
-        {
-            ArgumentNullException.ThrowIfNull(functionTable);
-
-            _functionTable = functionTable;
+            _dualMappedNoWxCache = dualMappedNoWxCache;
             _getFunctionAddressRef = NativeInterface.GetFunctionAddress;
             _getFunctionAddress = Marshal.GetFunctionPointerForDelegate(_getFunctionAddressRef);
             _slowDispatchStub = new(GenerateSlowDispatchStub, isThreadSafe: true);
@@ -148,7 +130,7 @@ namespace Ryujinx.Cpu.LightningJit
         {
             if (!_disposed)
             {
-                if (_noWxCache == null && _dualMappedCache == null)
+                if (_noWxCache == null || _dualMappedNoWxCache == null)
                 {
                     if (_dispatchStub.IsValueCreated)
                     {
@@ -177,9 +159,9 @@ namespace Ryujinx.Cpu.LightningJit
         /// Generates a <see cref="DispatchStub"/>.
         /// </summary>
         /// <returns>Generated <see cref="DispatchStub"/></returns>
-        private IntPtr GenerateDispatchStub()
+        private nint GenerateDispatchStub()
         {
-            List<int> branchToFallbackOffsets = new();
+            List<int> branchToFallbackOffsets = [];
 
             CodeWriter writer = new();
 
@@ -213,7 +195,7 @@ namespace Ryujinx.Cpu.LightningJit
 
                 for (int i = 0; i < _functionTable.Levels.Length; i++)
                 {
-                    ref var level = ref _functionTable.Levels[i];
+                    ref AddressTableLevel level = ref _functionTable.Levels[i];
 
                     asm.Mov(mask, level.Mask >> level.Index);
                     asm.And(index, mask, guestAddress, ArmShiftType.Lsr, level.Index);
@@ -265,7 +247,7 @@ namespace Ryujinx.Cpu.LightningJit
         /// Generates a <see cref="SlowDispatchStub"/>.
         /// </summary>
         /// <returns>Generated <see cref="SlowDispatchStub"/></returns>
-        private IntPtr GenerateSlowDispatchStub()
+        private nint GenerateSlowDispatchStub()
         {
             CodeWriter writer = new();
 
@@ -389,23 +371,25 @@ namespace Ryujinx.Cpu.LightningJit
                 throw new PlatformNotSupportedException();
             }
 
-            IntPtr pointer = Map(writer.AsByteSpan());
+            nint pointer = Map(writer.AsByteSpan());
 
             return Marshal.GetDelegateForFunctionPointer<DispatcherFunction>(pointer);
         }
 
-        private IntPtr Map(ReadOnlySpan<byte> code)
+        private nint Map(ReadOnlySpan<byte> code)
         {
             if (_noWxCache != null)
             {
                 return _noWxCache.MapPageAligned(code);
             }
-            else if (_dualMappedCache != null) 
+            if (_dualMappedNoWxCache != null && OperatingSystem.IsIOS())
             {
-                return _dualMappedCache.MapPageAligned(code);
+                return _dualMappedNoWxCache.MapPageAligned(code);
             }
-            
-            return JitCache.Map(code);
+            else
+            {
+                return JitCache.Map(code);
+            }
         }
 
         private static Operand Register(int register, OperandType type = OperandType.I64)

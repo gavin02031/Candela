@@ -141,6 +141,8 @@ namespace Ryujinx.HLE.HOS
 
         private static bool StrEquals(string s1, string s2) => string.Equals(s1, s2, StringComparison.OrdinalIgnoreCase);
 
+        private static string NormalizeCheatId(string buildId) => buildId[..Math.Min(Cheat.CheatIdSize, buildId.Length)].ToUpperInvariant();
+
         public static string GetModsBasePath() => EnsureBaseDirStructure(AppDataManager.GetModsPath());
         public static string GetSdModsBasePath() => EnsureBaseDirStructure(AppDataManager.GetSdModsPath());
 
@@ -374,7 +376,17 @@ namespace Ryujinx.HLE.HOS
             using StreamReader cheatData = cheatFile.OpenText();
             while (cheatData.ReadLine() is { } line)
             {
-                line = line.Trim();
+                line = StripCheatLineComment(line).Trim();
+
+                if (line.Length == 0 || IsCheatCommentLine(line))
+                {
+                    continue;
+                }
+
+                if (line[0] == '\uFEFF')
+                {
+                    line = line[1..].TrimStart();
+                }
 
                 if (line.StartsWith('['))
                 {
@@ -412,8 +424,30 @@ namespace Ryujinx.HLE.HOS
             }
         }
 
+        private static string StripCheatLineComment(string line)
+        {
+            int commentIndex = -1;
+
+            foreach (string marker in new[] { "//", "#", ";" })
+            {
+                int index = line.IndexOf(marker, StringComparison.Ordinal);
+
+                if (index >= 0 && (commentIndex < 0 || index < commentIndex))
+                {
+                    commentIndex = index;
+                }
+            }
+
+            return commentIndex >= 0 ? line[..commentIndex] : line;
+        }
+
+        private static bool IsCheatCommentLine(string line)
+        {
+            return line.Length >= 2 && line[0] == '{' && line[^1] == '}';
+        }
+
         // Assumes searchDirPaths don't overlap
-        private static void CollectMods(Dictionary<ulong, ModCache> modCaches, PatchCache patches, params string[] searchDirPaths)
+        private static void CollectMods(Dictionary<ulong, ModCache> modCaches, PatchCache patches, params ReadOnlySpan<string> searchDirPaths)
         {
             static bool IsPatchesDir(string name) => StrEquals(AmsNsoPatchDir, name) ||
                                                      StrEquals(AmsNroPatchDir, name) ||
@@ -463,7 +497,7 @@ namespace Ryujinx.HLE.HOS
             patches.Initialized = true;
         }
 
-        public void CollectMods(IEnumerable<ulong> applications, params string[] searchDirPaths)
+        public void CollectMods(IEnumerable<ulong> applications, params ReadOnlySpan<string> searchDirPaths)
         {
             Clear();
 
@@ -650,7 +684,7 @@ namespace Ryujinx.HLE.HOS
                         nsos[i] = new NsoExecutable(stream.AsStorage(), nsoName);
                         Logger.Info?.Print(LogClass.ModLoader, $"NSO '{nsoName}' replaced");
                         stream.Seek(0, SeekOrigin.Begin);
-                        tempHash += ToHexStringLower(MD5.HashData(stream));
+                        tempHash += Convert.ToHexStringLower(MD5.HashData(stream));
                     }
 
                     modLoadResult.Stubs[1 << i] |= File.Exists(Path.Combine(mod.Path.FullName, nsoName + StubExtension));
@@ -684,7 +718,7 @@ namespace Ryujinx.HLE.HOS
 
             if (!string.IsNullOrEmpty(tempHash))
             {
-                modLoadResult.Hash += ToHexStringLower(MD5.HashData(tempHash.ToBytes()));
+                modLoadResult.Hash += Convert.ToHexStringLower(MD5.HashData(tempHash.ToBytes()));
             }
 
             return modLoadResult;
@@ -704,12 +738,7 @@ namespace Ryujinx.HLE.HOS
             ApplyProgramPatches(nroPatches, 0, nro);
         }
 
-        public static string ToHexStringLower(byte[] bytes)
-        {
-            return Convert.ToHexString(bytes).ToLowerInvariant();
-        }
-
-        internal bool ApplyNsoPatches(ulong applicationId, params IExecutable[] programs)
+        internal bool ApplyNsoPatches(ulong applicationId, params ReadOnlySpan<IExecutable> programs)
         {
             IEnumerable<Mod<DirectoryInfo>> nsoMods = _patches.NsoPatches;
 
@@ -740,12 +769,18 @@ namespace Ryujinx.HLE.HOS
             }
 
             List<Cheat> cheats = mods.Cheats;
-            Dictionary<string, ulong> processExes = tamperInfo.BuildIds.Zip(tamperInfo.CodeAddresses, (k, v) => new { k, v })
-                .ToDictionary(x => x.k[..Math.Min(Cheat.CheatIdSize, x.k.Length)], x => x.v);
+            string[] buildIds = tamperInfo.BuildIds.ToArray();
+            ulong[] codeAddresses = tamperInfo.CodeAddresses.ToArray();
+            Dictionary<string, ulong> processExes = new(StringComparer.OrdinalIgnoreCase);
+
+            for (int index = 0; index < Math.Min(buildIds.Length, codeAddresses.Length); index++)
+            {
+                processExes[NormalizeCheatId(buildIds[index])] = codeAddresses[index];
+            }
 
             foreach (Cheat cheat in cheats)
             {
-                string cheatId = Path.GetFileNameWithoutExtension(cheat.Path.Name).ToUpper();
+                string cheatId = NormalizeCheatId(Path.GetFileNameWithoutExtension(cheat.Path.Name));
 
                 if (!processExes.TryGetValue(cheatId, out ulong exeAddress))
                 {
@@ -765,19 +800,26 @@ namespace Ryujinx.HLE.HOS
         internal static void EnableCheats(ulong applicationId, TamperMachine tamperMachine)
         {
             DirectoryInfo contentDirectory = FindApplicationDir(new DirectoryInfo(Path.Combine(GetModsBasePath(), AmsContentsDir)), $"{applicationId:x16}");
+
+            if (contentDirectory == null)
+            {
+                tamperMachine.EnableAllCheats();
+                return;
+            }
+
             string enabledCheatsPath = Path.Combine(contentDirectory.FullName, CheatDir, "enabled.txt");
-            string[] enabledCheats = Array.Empty<string>();
 
             if (File.Exists(enabledCheatsPath))
             {
-                enabledCheats = File.ReadAllLines(enabledCheatsPath);
+                tamperMachine.EnableCheats(File.ReadAllLines(enabledCheatsPath));
             }
-
-            tamperMachine.EnableCheats(enabledCheats);
-
+            else
+            {
+                tamperMachine.EnableAllCheats();
+            }
         }
 
-        private static bool ApplyProgramPatches(IEnumerable<Mod<DirectoryInfo>> mods, int protectedOffset, params IExecutable[] programs)
+        private static bool ApplyProgramPatches(IEnumerable<Mod<DirectoryInfo>> mods, int protectedOffset, params ReadOnlySpan<IExecutable> programs)
         {
             int count = 0;
 
