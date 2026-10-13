@@ -6,7 +6,7 @@ on:
     paths: [".github/workflows/ios-unsigned-ipa.yml"]
 jobs:
   ipa:
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
