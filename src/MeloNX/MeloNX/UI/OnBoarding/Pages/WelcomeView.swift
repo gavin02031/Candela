@@ -160,7 +160,7 @@ struct WelcomeView: View {
                     finish()
                 }
             
-            Text("Welcome to Candela" + versionNumber)
+            Text("Welcome to Candela")
                 .font(.title)
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
