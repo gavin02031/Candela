@@ -5,6 +5,8 @@ on:
   push:
     branches: ["u/Candela", perf/iphone15-first-batch]
     paths: [".github/workflows/ios-unsigned-ipa.yml"]
+permissions:
+  contents: write
 jobs:
   ipa:
     runs-on: xcode-27
@@ -89,6 +91,25 @@ jobs:
           mkdir -p Payload
           cp -R "$APP" Payload/
           zip -qry Candela-1.0-unsigned.ipa Payload
+      - name: Publish release v1.0
+        if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[release v1.0]') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'NOTES'
+          Candela 1.0
+
+          A performance-tuned iOS fork with a custom icon pack (plus 16 alternate app icons), a new interface option, and built-in JIT with on-device pairing on iOS 27 as an alternative to a separate helper app.
+
+          This is an unsigned build. Sign and install it with your own signing tool, and keep the app extensions when signing.
+
+          Notes
+          - Built-in JIT and on-device pairing are new and still being tested across devices. The previous JIT options are unchanged and still selectable in Settings.
+          - Build numbers and speed gains have not been measured.
+          NOTES
+          sed -i 's/^          //' release-notes.md
+          gh release create v1.0 Candela-1.0-unsigned.ipa --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Candela 1.0" --notes-file release-notes.md
       - uses: actions/upload-artifact@v4
         with:
           name: Candela-1.0-unsigned-ipa
