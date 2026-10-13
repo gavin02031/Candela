@@ -13,6 +13,9 @@
 		4EC482D22F8D101B008C1955 /* Ryujinx.Library.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4EC482D12F8D101B008C1955 /* Ryujinx.Library.dylib */; };
 		4EC482D32F8D101B008C1955 /* Ryujinx.Library.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 4EC482D12F8D101B008C1955 /* Ryujinx.Library.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		4EDA000100000000000A000B /* MeloNXRamDonor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EDA000100000000000A0002 /* MeloNXRamDonor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4EDA00020000000000B0000B /* CandelaJITHelper.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EDA00020000000000B00002 /* CandelaJITHelper.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4EDA00020000000000B00010 /* StikJIT.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4EDA00020000000000B0000F /* StikJIT.xcframework */; };
+		4EDA00020000000000B00011 /* StikJIT.xcframework in Embed StikJIT */ = {isa = PBXBuildFile; fileRef = 4EDA00020000000000B0000F /* StikJIT.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,6 +32,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4EDA000100000000000A0001;
 			remoteInfo = MeloNXRamDonor;
+		};
+		4EDA00020000000000B0000C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4ED5D5032F80DD02007DB057 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4EDA00020000000000B00001;
+			remoteInfo = CandelaJITHelper;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -51,8 +61,20 @@
 			dstSubfolderSpec = 13;
 			files = (
 				4EDA000100000000000A000B /* MeloNXRamDonor.appex in Embed Foundation Extensions */,
+				4EDA00020000000000B0000B /* CandelaJITHelper.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4EDA00020000000000B0000A /* Embed StikJIT */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				4EDA00020000000000B00011 /* StikJIT.xcframework in Embed StikJIT */,
+			);
+			name = "Embed StikJIT";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -62,6 +84,8 @@
 		4EC482D12F8D101B008C1955 /* Ryujinx.Library.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = Ryujinx.Library.dylib; path = "../Ryujinx.Library/bin/Release/net10.0/ios-arm64/native/Ryujinx.Library.dylib"; sourceTree = "<group>"; };
 		4ED5D50B2F80DD02007DB057 /* MeloNX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MeloNX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4EDA000100000000000A0002 /* MeloNXRamDonor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MeloNXRamDonor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4EDA00020000000000B00002 /* CandelaJITHelper.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CandelaJITHelper.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4EDA00020000000000B0000F /* StikJIT.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = StikJIT.xcframework; path = Vendor/StikJIT.xcframework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -79,6 +103,13 @@
 				Info.plist,
 			);
 			target = 4EDA000100000000000A0001 /* MeloNXRamDonor */;
+		};
+		4EDA00020000000000B0000E /* Exceptions for "CandelaJITHelper" folder in "CandelaJITHelper" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4EDA00020000000000B00001 /* CandelaJITHelper */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -135,6 +166,14 @@
 			path = MeloNXRamDonor;
 			sourceTree = "<group>";
 		};
+		4EDA00020000000000B00003 /* CandelaJITHelper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4EDA00020000000000B0000E /* Exceptions for "CandelaJITHelper" folder in "CandelaJITHelper" target */,
+			);
+			path = CandelaJITHelper;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -156,6 +195,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4EDA00020000000000B00005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4EDA00020000000000B00010 /* StikJIT.xcframework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -173,6 +220,8 @@
 			children = (
 				4ED5D50D2F80DD02007DB057 /* MeloNX */,
 				4EDA000100000000000A0003 /* MeloNXRamDonor */,
+				4EDA00020000000000B00003 /* CandelaJITHelper */,
+				4EDA00020000000000B0000F /* StikJIT.xcframework */,
 				4EC480BC2F8CCA70008C1955 /* Frameworks */,
 				4ED5D50C2F80DD02007DB057 /* Products */,
 			);
@@ -183,6 +232,7 @@
 			children = (
 				4ED5D50B2F80DD02007DB057 /* MeloNX.app */,
 				4EDA000100000000000A0002 /* MeloNXRamDonor.appex */,
+				4EDA00020000000000B00002 /* CandelaJITHelper.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -224,6 +274,7 @@
 			dependencies = (
 				4EA2CB242FD924E000BE964F /* PBXTargetDependency */,
 				4EDA000100000000000A000D /* PBXTargetDependency */,
+				4EDA00020000000000B0000D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4ED5D50D2F80DD02007DB057 /* MeloNX */,
@@ -259,6 +310,29 @@
 			productReference = 4EDA000100000000000A0002 /* MeloNXRamDonor.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		4EDA00020000000000B00001 /* CandelaJITHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4EDA00020000000000B00007 /* Build configuration list for PBXNativeTarget "CandelaJITHelper" */;
+			buildPhases = (
+				4EDA00020000000000B00004 /* Sources */,
+				4EDA00020000000000B00005 /* Frameworks */,
+				4EDA00020000000000B00006 /* Resources */,
+				4EDA00020000000000B0000A /* Embed StikJIT */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4EDA00020000000000B00003 /* CandelaJITHelper */,
+			);
+			name = CandelaJITHelper;
+			packageProductDependencies = (
+			);
+			productName = CandelaJITHelper;
+			productReference = 4EDA00020000000000B00002 /* CandelaJITHelper.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -274,6 +348,9 @@
 						LastSwiftMigration = 2620;
 					};
 					4EDA000100000000000A0001 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					4EDA00020000000000B00001 = {
 						CreatedOnToolsVersion = 26.2;
 					};
 					4EF06B692FA36B2400E56036 = {
@@ -301,6 +378,7 @@
 			targets = (
 				4ED5D50A2F80DD02007DB057 /* MeloNX */,
 				4EDA000100000000000A0001 /* MeloNXRamDonor */,
+				4EDA00020000000000B00001 /* CandelaJITHelper */,
 				4EF06B692FA36B2400E56036 /* Ryujinx */,
 			);
 		};
@@ -315,6 +393,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4EDA000100000000000A0006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4EDA00020000000000B00006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -338,6 +423,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4EDA00020000000000B00004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -350,6 +442,11 @@
 			isa = PBXTargetDependency;
 			target = 4EDA000100000000000A0001 /* MeloNXRamDonor */;
 			targetProxy = 4EDA000100000000000A000C /* PBXContainerItemProxy */;
+		};
+		4EDA00020000000000B0000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4EDA00020000000000B00001 /* CandelaJITHelper */;
+			targetProxy = 4EDA00020000000000B0000C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -643,6 +740,65 @@
 			};
 			name = Release;
 		};
+		4EDA00020000000000B00008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = CandelaJITHelper/CandelaJITHelper.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CandelaJITHelper/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Candela JIT Helper";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.7;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vertexselection.MeloVertex.JITHelper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4EDA00020000000000B00009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = CandelaJITHelper/CandelaJITHelper.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CandelaJITHelper/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Candela JIT Helper";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.7;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vertexselection.MeloVertex.JITHelper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		4EF06B6A2FA36B2500E56036 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -696,6 +852,15 @@
 			buildConfigurations = (
 				4EDA000100000000000A0008 /* Debug */,
 				4EDA000100000000000A0009 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4EDA00020000000000B00007 /* Build configuration list for PBXNativeTarget "CandelaJITHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4EDA00020000000000B00008 /* Debug */,
+				4EDA00020000000000B00009 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
