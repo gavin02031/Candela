@@ -167,6 +167,24 @@ struct AppIconSwitcherView: View {
         
         appIconCreator = [
             .init(icons: [
+                .init(iconDisplayName: "Pearl", iconName: "CandelaPearl"),
+                .init(iconDisplayName: "Moonlit Pumpkin", iconName: "CandelaMoonlitPumpkin"),
+                .init(iconDisplayName: "Winter Frost", iconName: "CandelaWinterFrost"),
+                .init(iconDisplayName: "Neon Night", iconName: "CandelaNeonNight"),
+                .init(iconDisplayName: "Pixel Sky", iconName: "CandelaPixelSky"),
+                .init(iconDisplayName: "Ocean Swirl", iconName: "CandelaOceanSwirl"),
+                .init(iconDisplayName: "Sunset Shore", iconName: "CandelaSunsetShore"),
+                .init(iconDisplayName: "Frosted", iconName: "CandelaFrosted"),
+                .init(iconDisplayName: "Prism", iconName: "CandelaPrism"),
+                .init(iconDisplayName: "Vine", iconName: "CandelaVine"),
+                .init(iconDisplayName: "Onyx", iconName: "CandelaOnyx"),
+                .init(iconDisplayName: "Cloud", iconName: "CandelaCloud"),
+                .init(iconDisplayName: "Inferno", iconName: "CandelaInferno"),
+                .init(iconDisplayName: "Lilac Dream", iconName: "CandelaLilacDream"),
+                .init(iconDisplayName: "Synthwave", iconName: "CandelaSynthwave"),
+                .init(iconDisplayName: "Aqua Ripple", iconName: "CandelaAquaRipple")
+            ], creator: "Candela"),
+            .init(icons: [
                 .init(iconDisplayName: "Default", iconName: UIImage.appIcon()),
                 .init(iconDisplayName: "Round", iconName: "RoundAppIcon"),
                 .init(iconDisplayName: "QueerNX", iconName: "QueerNX")
