@@ -77,6 +77,16 @@
 			</array>
 		</dict>
 	</dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).pairing.*</string>
+	</array>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_remotepairing-pairable-host._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Candela uses the local network to pair with this iPhone for built-in JIT, without a computer.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>UTExportedTypeDeclarations</key>
