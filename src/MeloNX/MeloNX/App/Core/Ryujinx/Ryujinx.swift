@@ -83,13 +83,13 @@ class Ryujinx : ObservableObject {
         var listinputids: Bool = false
         var aspectRatio: AspectRatio = .fixed16x9
         var memoryManagerMode: String = "HostMappedUnsafe"
-        var enableShaderCache: Bool = false
+        var enableShaderCache: Bool = true
         var hypervisor: Bool = false
         var enableDockedMode: Bool = false
         var enableTextureRecompression: Bool = true
         var additionalArgs: [String] = []
         var maxAnisotropy: Double = 1.0
-        var macroHLE: Bool = false
+        var macroHLE: Bool = true
         var ignoreMissingServices: Bool = false
         var expandRam: Bool = false
         var dfsIntegrityChecks: Bool = false
