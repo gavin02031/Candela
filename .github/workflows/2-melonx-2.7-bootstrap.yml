@@ -31,10 +31,36 @@ jobs:
           cp -R /tmp/Candela-github .github
           cp /tmp/Candela-README.md README.md
           cp /tmp/candela-overlay.patch.gz 1-1-candela-overlay.patch.gz
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          r=Path('src/MeloNX/MeloNX')
+          p=r/'UI/Candela/CandelaLibraryStore.swift'
+          p.write_text(p.read_text().replace('import SwiftUI','import SwiftUI\nimport Combine'))
+          p=r/'UI/Emulation/EmulationView.swift'
+          p.write_text(p.read_text().replace('    var game: GameInfo','    init(game: GameInfo) { self.game = game }\n\n    var game: GameInfo'))
+          p=r/'UI/MeloNXApp.swift'
+          text=p.read_text().replace('        if #available(iOS 27.0, *) {','        #if CANDELA_IOS27_AIRPLAY\n        if #available(iOS 27.0, *) {')
+          text=text.replace('                .externalNonInteractive(sceneConfiguration: configuration)\n            )\n        }','                .externalNonInteractive(sceneConfiguration: configuration)\n            )\n        }\n        #endif')
+          p.write_text(text)
+          p=Path('docs/melonx-2.7-integration.md')
+          p.write_text(p.read_text()+'\nThe iOS27 scene accessory requires its SDK. Builds below SDK27 retain its source but compile it out using CANDELA_IOS27_AIRPLAY. Do not claim iOS27 AirPlay registration in these interim builds.\n')
+          PYCODE
           git add -A
           git -c user.name='gavin02031' -c user.email='gavin02031@users.noreply.github.com' commit -m 'Sync pinned MeloNX 2.7 source and preserve Candela frontend, presets and identity'
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+      - name: Inventory Xcode and select SDK27 if installed
+        run: |
+          ls -d /Applications/Xcode*.app
+          XCODE27=$(find /Applications -maxdepth 1 -name 'Xcode_27*.app' | sort | tail -1)
+          if [ -n "$XCODE27" ]; then
+            sudo xcode-select -s "$XCODE27"
+            echo 'CANDELA_SWIFT_FLAGS=$(inherited) CANDELA_IOS27_AIRPLAY' >> "$GITHUB_ENV"
+          else
+            sudo xcode-select -s /Applications/Xcode_26.3.app
+            echo 'CANDELA_SWIFT_FLAGS=$(inherited)' >> "$GITHUB_ENV"
+            echo 'iOS27 AirPlay registration is not compiled in this interim build' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
@@ -68,7 +94,7 @@ jobs:
           test -f src/Ryujinx.Library/bin/Release/net10.0/ios-arm64/native/Ryujinx.Library.dylib
       - name: Build app and RAM donor extension without signing
         run: |
-          xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ACTIVE_COMPILATION_CONDITIONS="$CANDELA_SWIFT_FLAGS" build
       - name: Verify extension and package IPA
         run: |
           set -euo pipefail
