@@ -1,0 +1,60 @@
+name: Sync MeloNX 2.7 and build Candela
+on:
+  push:
+    branches: [sync/melonx-2.7]
+    paths: [".github/workflows/melonx-2.7-bootstrap.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  sync-build:
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Apply pinned upstream source and Candela overlay
+        run: |
+          set -euo pipefail
+          cp candela-overlay.patch.gz /tmp/candela-overlay.patch.gz
+          cp .github/workflows/melonx-2.7-bootstrap.yml /tmp/melonx-2.7-bootstrap.yml
+          git fetch https://starforgejo.dev/projects/MeloNX.git refs/tags/2.7
+          UPSTREAM=$(git rev-parse FETCH_HEAD^{commit})
+          test "$UPSTREAM" = 13700519f3abc4e6d7ed8a065b118b2cc59bcd67
+          git read-tree --reset -u "$UPSTREAM"
+          gunzip -c /tmp/candela-overlay.patch.gz | git apply --binary --index
+          cp /tmp/melonx-2.7-bootstrap.yml .github/workflows/melonx-2.7-bootstrap.yml
+          cp /tmp/candela-overlay.patch.gz candela-overlay.patch.gz
+          git add -A
+          git -c user.name='gavin02031' -c user.email='gavin02031@users.noreply.github.com' commit -m 'Sync pinned MeloNX 2.7 source and preserve Candela frontend, presets and identity'
+          git push origin HEAD:sync/melonx-2.7
+      - name: Select Xcode 26.3
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish .NET 10 native C# library
+        run: |
+          dotnet --info
+          xcodebuild -version
+          dotnet publish -c Release -r ios-arm64 -p:ExtraDefineConstants=DISABLE_UPDATER src/Ryujinx.Library --self-contained true
+          test -f src/Ryujinx.Library/bin/Release/net10.0/ios-arm64/native/Ryujinx.Library.dylib
+      - name: Build app and RAM donor extension without signing
+        run: |
+          xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+      - name: Verify extension and package IPA
+        run: |
+          set -euo pipefail
+          APP=$(find build/Build/Products -maxdepth 2 -name 'MeloNX.app' -type d | head -n 1)
+          test -n "$APP"
+          test -d "$APP/PlugIns/MeloNXRamDonor.appex"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry Candela-2.7-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Candela-2.7-unsigned-ipa
+          path: Candela-2.7-unsigned.ipa
+          if-no-files-found: error
