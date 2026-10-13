@@ -53,7 +53,7 @@ struct JITPopover: View {
                         .foregroundColor(.blue)
                         .font(.system(size: 16))
                     
-                    Text("JIT compilation enables MeloVertex to achieve maximum performance by dynamically translating and executing code on the fly.")
+                    Text("JIT compilation enables Candela to achieve maximum performance by dynamically translating and executing code on the fly.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
