@@ -3,7 +3,7 @@ name: Build unsigned iOS IPA
 on:
   workflow_dispatch:
   push:
-    branches: [perf/iphone15-first-batch]
+    branches: ["u/Candela", perf/iphone15-first-batch]
     paths: [".github/workflows/ios-unsigned-ipa.yml"]
 jobs:
   ipa:
