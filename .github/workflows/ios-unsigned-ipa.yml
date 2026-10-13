@@ -63,9 +63,17 @@ jobs:
           curl -fsSL -o /tmp/StikJIT.xcframework.zip https://github.com/StikDebug/StikJIT/releases/download/1.9.0/StikJIT.xcframework.zip
           unzip -q /tmp/StikJIT.xcframework.zip -d src/MeloNX/Vendor
           test -d src/MeloNX/Vendor/StikJIT.xcframework/ios-arm64/StikJIT.framework
+      - name: Build on-device pairing library (Rust, adapted from Husk)
+        run: |
+          set -euo pipefail
+          rustup target add aarch64-apple-ios
+          cd src/candela-rppairing
+          IPHONEOS_DEPLOYMENT_TARGET=15.0 cargo build --release --target aarch64-apple-ios
+          mkdir -p ../MeloNX/Vendor/lib
+          cp target/aarch64-apple-ios/release/libcandela_rppairing.a ../MeloNX/Vendor/lib/
       - name: Build app and RAM donor extension without signing
         run: |
-          xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ACTIVE_COMPILATION_CONDITIONS="$CANDELA_SWIFT_FLAGS" build
+          xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ACTIVE_COMPILATION_CONDITIONS="$CANDELA_SWIFT_FLAGS" OTHER_LDFLAGS='$(inherited) -lcandela_rppairing' LIBRARY_SEARCH_PATHS='$(inherited) $(SRCROOT)/Vendor/lib' build
       - name: Verify extension and package IPA
         run: |
           set -euo pipefail
