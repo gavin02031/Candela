@@ -140,7 +140,7 @@ struct ContentView: View {
             .alert(isPresented: shouldShowEntitlementBinding) {
                 Alert(
                     title: Text("Entitlement"),
-                    message: Text(LocalizedStringKey("MeloVertex **REQUIRES** the Increased Memory Limit entitlement, Please follow the instructions on how to Install MeloVertex and Enable the Entitlement.")),
+                    message: Text(LocalizedStringKey("Candela **REQUIRES** the Increased Memory Limit entitlement, Please follow the instructions on how to Install Candela and Enable the Entitlement.")),
                     primaryButton: .default(Text("Instructions")) {
                         UIApplication.shared.open(
                             URL(string: "https://github.com/VertexSelection/MeloVertex#how-to-install")!,
