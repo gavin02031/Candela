@@ -42,6 +42,8 @@ jobs:
           text=p.read_text().replace('        if #available(iOS 27.0, *) {','        #if CANDELA_IOS27_AIRPLAY\n        if #available(iOS 27.0, *) {')
           text=text.replace('                .externalNonInteractive(sceneConfiguration: configuration)\n            )\n        }','                .externalNonInteractive(sceneConfiguration: configuration)\n            )\n        }\n        #endif')
           p.write_text(text)
+          p=r/'UI/Main/Settings/NativeSettingsManager.swift'
+          p.write_text(p.read_text().replace('class Setting<T: Any>: Hashable, AnySettingProtocol {', 'class Setting<T: Any>: Hashable, AnySettingProtocol {\n    // Swift 6.2.4 crashes optimizing the synthesized generic destructor.\n    @_optimize(none) deinit {}'))
           p=Path('docs/melonx-2.7-integration.md')
           p.write_text(p.read_text()+'\nThe iOS27 scene accessory requires its SDK. Builds below SDK27 retain its source but compile it out using CANDELA_IOS27_AIRPLAY. Do not claim iOS27 AirPlay registration in these interim builds.\n')
           PYCODE
