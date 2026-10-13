@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [perf/iphone15-first-batch]
-    paths: [".github/workflows/1-candela-alternate-icons.yml"]
+    paths: [".github/workflows/2-candela-alternate-icons.yml"]
 jobs:
   ipa:
     runs-on: macos-15
