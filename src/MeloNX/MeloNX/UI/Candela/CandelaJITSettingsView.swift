@@ -34,6 +34,7 @@ struct CandelaJITSettingsView: View {
     @State private var status = "Not checked"
     @State private var busy = false
     @State private var importing = false
+    @ObservedObject private var pairing = CandelaOnDevicePairing.shared
 
     var body: some View {
         Form {
@@ -43,6 +44,38 @@ struct CandelaJITSettingsView: View {
                 if let why = CandelaBuiltInJIT.unavailableReason {
                     Text(why).font(.footnote).foregroundStyle(.orange)
                 }
+            }
+            Section("Pair on this iPhone (iOS 27)") {
+                if !CandelaOnDevicePairing.isSupported {
+                    Text("Needs iOS 27 or later. On older iOS, import a pairing file below.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    switch pairing.phase {
+                    case .idle:
+                        Text("Allow Local Network access, then open Settings > Privacy & Security > Developer Mode, scroll down, tap \"Pair with Candela\" and enter the code shown here.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    case .waiting:
+                        Label("Waiting for you to tap \"Pair with Candela\" in Settings", systemImage: "hourglass")
+                    case .pin(let code):
+                        Label("Code: \(code)", systemImage: "number").font(.title3.monospacedDigit())
+                    case .paired(let device):
+                        Label("Paired with \(device)", systemImage: "checkmark.circle")
+                    case .failed(let message):
+                        Text(message).font(.footnote).foregroundStyle(.red)
+                    }
+                    if pairing.backgroundLimited && pairing.active {
+                        Text("iOS did not allow Candela to keep running in the background (a re-signed bundle ID can cause this). Open Settings right away and pair within about 30 seconds.")
+                            .font(.footnote).foregroundStyle(.orange)
+                    }
+                    if pairing.active {
+                        Button("Cancel pairing", role: .cancel) { pairing.cancel() }
+                    } else {
+                        Button("Start pairing") { pairing.reset(); pairing.start() }
+                    }
+                }
+            }
+            .onReceive(pairing.$phase) { phase in
+                if case .paired = phase { hasPairing = CandelaPairingStore.load() != nil; status = "Not checked" }
             }
             Section("Pairing") {
                 Label(hasPairing ? "Pairing file saved" : "No pairing file",
