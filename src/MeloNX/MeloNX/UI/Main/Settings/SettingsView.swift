@@ -1069,6 +1069,10 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.menu)
                 }
+
+                NavigationLink("Built-in JIT setup (beta)") {
+                    CandelaJITSettingsView()
+                }
                 
                 let model = UIDevice.modelName
                 if !model.contains("Mac") || !ProcessInfo.processInfo.isiOSAppOnMac {
