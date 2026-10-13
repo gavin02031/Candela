@@ -143,7 +143,7 @@ struct ContentView: View {
                     message: Text(LocalizedStringKey("Candela **REQUIRES** the Increased Memory Limit entitlement, Please follow the instructions on how to Install Candela and Enable the Entitlement.")),
                     primaryButton: .default(Text("Instructions")) {
                         UIApplication.shared.open(
-                            URL(string: "https://github.com/VertexSelection/MeloVertex#how-to-install")!,
+                            URL(string: "https://github.com/gavin02031/VortexClub#installing")!,
                             options: [:],
                             completionHandler: nil
                         )
