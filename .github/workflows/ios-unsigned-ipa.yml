@@ -1,4 +1,5 @@
 name: Build unsigned iOS IPA
+# rebuild trigger: Stage B pairing
 on:
   workflow_dispatch:
   push:
