@@ -1,87 +1,89 @@
 name: Build unsigned iOS IPA
-
-# Manual only. Run it from the Actions tab: "Build unsigned iOS IPA" > Run workflow.
 on:
   workflow_dispatch:
   push:
     branches: [perf/iphone15-first-batch]
     paths: [".github/workflows/ios-unsigned-ipa.yml"]
-
-env:
-  DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  DOTNET_NOLOGO: 1
-
 jobs:
   ipa:
-    name: Build unsigned IPA
     runs-on: macos-15
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
-
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app
-
+      - name: Inventory Xcode and select SDK27 if installed
+        run: |
+          ls -d /Applications/Xcode*.app
+          XCODE27=$(find /Applications -maxdepth 1 -name 'Xcode_27*.app' | sort | tail -1)
+          if [ -n "$XCODE27" ]; then
+            sudo xcode-select -s "$XCODE27"
+            echo 'CANDELA_SWIFT_FLAGS=$(inherited) CANDELA_IOS27_AIRPLAY' >> "$GITHUB_ENV"
+          else
+            sudo xcode-select -s /Applications/Xcode_26.3.app
+            echo 'CANDELA_SWIFT_FLAGS=$(inherited)' >> "$GITHUB_ENV"
+            echo 'iOS27 AirPlay registration is not compiled in this interim build' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-
-      - name: Show toolchain
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Rebuild verified LibHac alpha.129 source and run tests
+        run: |
+          set -euo pipefail
+          git clone https://starforgejo.dev/archive/LibHac_Ryubing.git /tmp/libhac
+          git -C /tmp/libhac checkout 23e402ebb6dedc517e34a98a033078dc0f6fd478
+          cd /tmp/libhac
+          dotnet run --project build/_build.csproj -- --target Codegen --configuration Release
+          dotnet pack src/LibHac/LibHac.csproj -c Release -p:PackageVersion=0.21.0-alpha.129 -o /tmp/libhac-feed
+          dotnet test tests/LibHac.Tests/LibHac.Tests.csproj -c Release --logger 'trx;LogFileName=libhac-tests.trx'
+          cd "$GITHUB_WORKSPACE"
+          python3 - <<'PYCODE'
+          import xml.etree.ElementTree as E
+          p='nuget.config'
+          t=E.parse(p)
+          for x in t.getroot().find('packageSources'):
+              if x.get('key')=='LibHacAlpha': x.set('value','/tmp/libhac-feed')
+          t.write(p,encoding='utf-8',xml_declaration=True)
+          PYCODE
+      - name: Publish .NET 10 native C# library
         run: |
           dotnet --info
           xcodebuild -version
-          xcrun --sdk iphoneos --show-sdk-version
-
-      # Same command as distribution/ios/xc-compile.sh. The Xcode "ShellScript" build
-      # phase then moves the published dylib into Dependencies/Dynamic Libraries.
-      - name: Publish C# core for ios-arm64
+          dotnet publish -c Release -r ios-arm64 -p:ExtraDefineConstants=DISABLE_UPDATER src/Ryujinx.Library --self-contained true
+          test -f src/Ryujinx.Library/bin/Release/net10.0/ios-arm64/native/Ryujinx.Library.dylib
+      - name: Build app and RAM donor extension without signing
         run: |
-          dotnet restore
-          dotnet publish -c Release -r ios-arm64 -p:ExtraDefineConstants=DISABLE_UPDATER src/Ryujinx.Headless.SDL2 --self-contained true
-
-      - name: Stage C# dylib and check exports
+          xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ACTIVE_COMPILATION_CONDITIONS="$CANDELA_SWIFT_FLAGS" build
+      - name: Verify extension and package IPA
         run: |
-          B=src/Ryujinx.Headless.SDL2/bin/Release/net8.0/ios-arm64
-          ls -la $B/publish | head -40
-          ls -la $B/native || true
-          SRC=$B/publish/Ryujinx.Headless.SDL2.dylib
-          test -f "$SRC" || SRC=$B/native/Ryujinx.Headless.SDL2.dylib
-          test -f "$SRC"
-          file "$SRC"
-          mkdir -p "src/MeloNX/MeloNX/Dependencies/Dynamic Libraries"
-          cp "$SRC" "src/MeloNX/MeloNX/Dependencies/Dynamic Libraries/Ryujinx.Headless.SDL2.dylib"
-          nm -gU "$SRC" | grep -E 'attach_gamepad|close_user|create_account' || echo 'EXPORTS MISSING'
-          nm -gU "$SRC" | wc -l
-
-      - name: Build app with xcodebuild (no signing)
-        run: |
-          xcodebuild \
-            -project src/MeloNX/MeloNX.xcodeproj \
-            -scheme MeloNX \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            build
-
-      - name: Package unsigned IPA
-        run: |
-          APP=$(find build/Build/Products -maxdepth 2 -name '*.app' -type d | head -n 1)
-          echo "App bundle: $APP"
+          set -euo pipefail
+          APP=$(find build/Build/Products -maxdepth 2 -name 'MeloNX.app' -type d | head -n 1)
           test -n "$APP"
-          rm -rf Payload
-          mkdir Payload
+          test -d "$APP/PlugIns/MeloNXRamDonor.appex"
+          find "$APP" -iname "*AppIcon*" -o -name Assets.car
+          xcrun --sdk iphoneos assetutil --info "$APP/Assets.car" > icon-assets.json
+          cp "$APP/Assets.car" icon-Assets.car
+          mkdir -p Payload
           cp -R "$APP" Payload/
-          zip -qry Candela-unsigned.ipa Payload
-          ls -lh Candela-unsigned.ipa
-
+          zip -qry Candela-2.7-unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: Candela-unsigned-ipa
-          path: Candela-unsigned.ipa
+          name: Candela-2.7-unsigned-ipa
+          path: |
+            Candela-2.7-unsigned.ipa
+            icon-assets.json
+            icon-Assets.car
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: LibHac-alpha129-verification
+          path: |
+            /tmp/libhac-feed/*.nupkg
+            /tmp/libhac/tests/LibHac.Tests/TestResults/*.trx
+          if-no-files-found: warn
