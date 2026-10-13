@@ -56,6 +56,13 @@ jobs:
           xcodebuild -version
           dotnet publish -c Release -r ios-arm64 -p:ExtraDefineConstants=DISABLE_UPDATER src/Ryujinx.Library --self-contained true
           test -f src/Ryujinx.Library/bin/Release/net10.0/ios-arm64/native/Ryujinx.Library.dylib
+      - name: Fetch StikJIT 1.9.0 xcframework (MPL-2.0, unmodified)
+        run: |
+          set -euo pipefail
+          mkdir -p src/MeloNX/Vendor
+          curl -fsSL -o /tmp/StikJIT.xcframework.zip https://github.com/StikDebug/StikJIT/releases/download/1.9.0/StikJIT.xcframework.zip
+          unzip -q /tmp/StikJIT.xcframework.zip -d src/MeloNX/Vendor
+          test -d src/MeloNX/Vendor/StikJIT.xcframework/ios-arm64/StikJIT.framework
       - name: Build app and RAM donor extension without signing
         run: |
           xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ACTIVE_COMPILATION_CONDITIONS="$CANDELA_SWIFT_FLAGS" build
@@ -65,6 +72,8 @@ jobs:
           APP=$(find build/Build/Products -maxdepth 2 -name 'MeloNX.app' -type d | head -n 1)
           test -n "$APP"
           test -d "$APP/PlugIns/MeloNXRamDonor.appex"
+          test -d "$APP/PlugIns/CandelaJITHelper.appex"
+          test -d "$APP/PlugIns/CandelaJITHelper.appex/Frameworks/StikJIT.framework"
           find "$APP" -iname "*AppIcon*" -o -name Assets.car
           xcrun --sdk iphoneos assetutil --info "$APP/Assets.car" > icon-assets.json
           cp "$APP/Assets.car" icon-Assets.car
