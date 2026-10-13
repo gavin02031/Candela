@@ -2,7 +2,7 @@
   <img src="src/MeloNX/MeloNX/Assets/AppIcons/AppIcon.icon/Assets/Candela.png" alt="Candela icon" width="120">
 </p>
 <h1 align="center">Candela</h1>
-<p align="center">A Nintendo Switch emulator for iPhone and iPad, with an iPhone 15-focused frontend and starting presets.</p>
+<p align="center">A NS emulator for iPhone and iPad, with an iPhone 15-focused frontend and starting presets.</p>
 
 > Candela is an unofficial fork of [MeloNX](https://starforgejo.dev/projects/MeloNX). It is not affiliated with the upstream teams. Report Candela problems in this repository, not to upstream.
 
