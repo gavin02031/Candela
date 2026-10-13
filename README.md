@@ -4,11 +4,11 @@
 <h1 align="center">Candela</h1>
 <p align="center">A Nintendo Switch emulator for iPhone and iPad, with an iPhone 15-focused frontend and starting presets.</p>
 
-> Unofficial fork. Candela is not affiliated with the MeloNX, MeloVertex or Ryujinx teams. Report Candela problems in this repository, not to upstream.
+> Candela is an unofficial fork of [MeloNX](https://starforgejo.dev/projects/MeloNX). It is not affiliated with the upstream teams. Report Candela problems in this repository, not to upstream.
 
 ## About
 
-Candela builds on MeloNX and Ryujinx, through the MeloVertex fork. It combines the Candela name, custom icon and app display name with a native SwiftUI home screen and per-game starting presets. The core and iOS platform are now based on the pinned MeloNX 2.7 source (13700519f3abc4e6d7ed8a065b118b2cc59bcd67).
+Candela is a Nintendo Switch emulator with a custom icon and app display name, a native SwiftUI home screen and per-game starting presets. The core and iOS platform use the pinned 2.7 source (13700519f3abc4e6d7ed8a065b118b2cc59bcd67).
 
 **Validation status:** the Release build passed and an unsigned IPA was packaged with the RAM donor extension. No performance benchmarks or physical-device tests have been completed. A source feature is not a promise that it works on every iPhone, game or sideloading setup. Check Actions for the current build result; an unsigned IPA still needs signing and on-device testing.
 
@@ -20,9 +20,9 @@ Candela builds on MeloNX and Ryujinx, through the MeloVertex fork. It combines t
 - **Shader cache and macro HLE defaults:** enabled for the Candela starting configuration. The presets are unmeasured starting points, not FPS claims.
 - **Candela identity:** custom icon and display name. The existing MeloVertex bundle identifier is retained, so installing Candela can replace that app. Back up saves and settings first.
 
-## MeloNX 2.7 features
+## Emulation and platform features
 
-These implementations come from upstream MeloNX 2.7, not new Candela inventions:
+The app includes these implementations from the 2.7 source:
 
 - **RAM offload:** NSExtensions and `xpc_shmem` move guest RAM into a donor app extension using shared memory. This is separate from the in-app Memory Limit Tester; do not use that tester as proof that RAM offload works. The extension must remain included when signing. OS behavior, entitlement requirements and sideloading compatibility need device testing. Upstream uses private NSExtension APIs here.
 - **MetalFX spatial upscaling**, plus an anti-aliasing setting.
@@ -38,23 +38,23 @@ No RAM saving, frame rate, battery life or game compatibility improvement has be
 
 ## Installing and JIT
 
-Candela requires JIT. An unsigned build is not ready to install until it has been signed with your sideloader. Use the current upstream installation and entitlement guidance at [MeloNX](https://starforgejo.dev/projects/MeloNX#faq), and make sure your signing setup preserves the app extension and required entitlements.
+Candela requires JIT. An unsigned build is not ready to install until it has been signed with your sideloader. Use the current installation and entitlement guidance linked at the top of this README, and make sure your signing setup preserves the app extension and required entitlements.
 
 Add only keys, firmware and games dumped from your own Switch, or legal homebrew. No keys, firmware or games are bundled or supplied here. Enable JIT using a method compatible with your exact iOS version. StikDebug is one upstream-recommended route; support for a particular OS/device must be checked, not assumed.
 
 ## Building
 
-The repository's Actions workflows build an unsigned iOS IPA on macOS runners. The 2.7 integration uses .NET 10, the `Ryujinx.Library` native AOT project and Xcode 26.3. The app build includes the `MeloNXRamDonor.appex` extension and checks for it before packaging.
+The repository's Actions workflows build an unsigned iOS IPA on macOS runners. The 2.7 integration uses .NET 10, the `Ryujinx.Library` native AOT project and Xcode 26.3. The app build includes the RAM donor extension and checks for it before packaging.
 
 Use **Build unsigned iOS IPA** from Actions on the working branch. Its artifact, if the build succeeds, is `Candela-2.7-unsigned-ipa`. The validated 2.7 build is [sync run #7](https://github.com/gavin02031/VortexClub/actions/runs/38466747430). A failed run has no installable artifact. Download successful artifacts from Actions and sign them with your sideloader. Do not treat an Actions success as device or performance verification.
 
-LibHac `0.21.0-alpha.129` is rebuilt from exact archived revision `23e402ebb6dedc517e34a98a033078dc0f6fd478`. The official MeloNX 2.7 dylib embeds that revision, tying the dependency to its original source. Validation: 1,616 tests passed, 0 failed, 11 skipped. The workflow repeats code generation, package build and tests rather than relying on the unavailable old feed.
+LibHac `0.21.0-alpha.129` is rebuilt from exact archived revision `23e402ebb6dedc517e34a98a033078dc0f6fd478`. The original 2.7 dylib embeds that revision, tying the dependency to its original source. Validation: 1,616 tests passed, 0 failed, 11 skipped. The workflow repeats code generation, package build and tests rather than relying on the unavailable old feed.
 
 Swift 6.2.4 crashes optimizing the synthesized generic `Setting` destructor; a local `@_optimize(none) deinit {}` workaround keeps normal Release optimization everywhere else. See [Swift issue 87462](https://github.com/swiftlang/swift/issues/87462).
 
 ## Credits and licenses
 
-- [MeloNX](https://starforgejo.dev/projects/MeloNX): iOS platform, frontend, controller, RAM-offload and graphics work.
+- The upstream project linked above and its contributors: iOS platform, frontend, controller, RAM-offload and graphics work.
 - Ryujinx and its contributors: emulation core.
 - [MeloVertex](https://github.com/VertexSelection/MeloVertex): the fork Candela started from.
 - Third-party notices remain in the source and distribution documentation.
