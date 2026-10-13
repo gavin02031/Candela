@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Adapted from Leviidev/Husk JITPairing.swift (GPL-2.0-or-later). Candela is AGPLv3-or-later.
 import BackgroundTasks
+import Combine
 import dnssd
 import Foundation
 import SwiftUI
