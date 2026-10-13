@@ -8,28 +8,29 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         public ILibraryAppletCreator() { }
 
         [CommandCmif(0)]
-        // CreateLibraryAppletOld(u32, u32) -> object<nn::am::service::ILibraryAppletAccessor>
-        public ResultCode CreateLibraryAppletOld(ServiceCtx context)
-        {
-            AppletId appletId = (AppletId)context.RequestData.ReadInt32();
-            int libraryAppletMode = context.RequestData.ReadInt32();
-
-            return CreateLibraryAppletImpl(context, appletId, libraryAppletMode, null);
-        }
-
-        [CommandCmif(3)] // 20.0.0+
-        // CreateLibraryApplet(u32, u32, u64) -> object<nn::am::service::ILibraryAppletAccessor>
+        // CreateLibraryApplet(u32, u32) -> object<nn::am::service::ILibraryAppletAccessor>
         public ResultCode CreateLibraryApplet(ServiceCtx context)
         {
             AppletId appletId = (AppletId)context.RequestData.ReadInt32();
+#pragma warning disable IDE0059 // Remove unnecessary value assignment
             int libraryAppletMode = context.RequestData.ReadInt32();
-            ulong callerThreadId = context.RequestData.ReadUInt64();
+#pragma warning restore IDE0059
 
-            return CreateLibraryAppletImpl(context, appletId, libraryAppletMode, callerThreadId);
+            MakeObject(context, new ILibraryAppletAccessor(appletId, context.Device.System));
+
+            return ResultCode.Success;
         }
 
-        private ResultCode CreateLibraryAppletImpl(ServiceCtx context, AppletId appletId, int _libraryAppletMode, ulong? _callerThreadId)
+        [CommandCmif(3)] // 20.0.0+
+        // CreateLibraryAppletEx(u32, u32, u64) -> object<nn::am::service::ILibraryAppletAccessor>
+        public ResultCode CreateLibraryAppletEx(ServiceCtx context)
         {
+            AppletId appletId = (AppletId)context.RequestData.ReadInt32();
+
+            _ = context.RequestData.ReadInt32(); // libraryAppletMode
+
+            _ = context.RequestData.ReadUInt64(); // threadId
+
             MakeObject(context, new ILibraryAppletAccessor(appletId, context.Device.System));
 
             return ResultCode.Success;

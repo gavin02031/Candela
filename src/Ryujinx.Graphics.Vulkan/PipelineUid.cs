@@ -42,7 +42,9 @@ namespace Ryujinx.Graphics.Vulkan
         {
             if (!Unsafe.As<ulong, Vector256<byte>>(ref Id0).Equals(Unsafe.As<ulong, Vector256<byte>>(ref other.Id0)) ||
                 !Unsafe.As<ulong, Vector256<byte>>(ref Id4).Equals(Unsafe.As<ulong, Vector256<byte>>(ref other.Id4)) ||
-                !Unsafe.As<ulong, Vector128<byte>>(ref Id7).Equals(Unsafe.As<ulong, Vector128<byte>>(ref other.Id7)))
+                !Unsafe.As<ulong, Vector128<byte>>(ref Id7).Equals(Unsafe.As<ulong, Vector128<byte>>(ref other.Id7)) ||
+                AttachmentIntegerFormatMask != other.AttachmentIntegerFormatMask ||
+                LogicOpsAllowed != other.LogicOpsAllowed)
             {
                 return false;
             }
@@ -85,38 +87,49 @@ namespace Ryujinx.Graphics.Vulkan
                            Id5 * 23 ^
                            Id6 * 23 ^
                            Id7 * 23 ^
-                           Id8 * 23;
+                           Id8 * 23 ^
+                           AttachmentIntegerFormatMask * 23 ^
+                           (LogicOpsAllowed ? 23UL : 0UL);
+            
+            ReadOnlySpan<VertexInputAttributeDescription> vertexAttributeDescriptionsSpan = VertexAttributeDescriptions.AsSpan();
 
             for (int i = 0; i < (int)VertexAttributeDescriptionsCount; i++)
             {
-                hash64 ^= VertexAttributeDescriptions[i].Binding * 23;
-                hash64 ^= (uint)VertexAttributeDescriptions[i].Format * 23;
-                hash64 ^= VertexAttributeDescriptions[i].Location * 23;
-                hash64 ^= VertexAttributeDescriptions[i].Offset * 23;
+                hash64 ^= vertexAttributeDescriptionsSpan[i].Binding * 23;
+                hash64 ^= (uint)vertexAttributeDescriptionsSpan[i].Format * 23;
+                hash64 ^= vertexAttributeDescriptionsSpan[i].Location * 23;
+                hash64 ^= vertexAttributeDescriptionsSpan[i].Offset * 23;
             }
+            
+            ReadOnlySpan<VertexInputBindingDescription> vertexBindingDescriptionsSpan = VertexBindingDescriptions.AsSpan();
 
             for (int i = 0; i < (int)VertexBindingDescriptionsCount; i++)
             {
-                hash64 ^= VertexBindingDescriptions[i].Binding * 23;
-                hash64 ^= (uint)VertexBindingDescriptions[i].InputRate * 23;
-                hash64 ^= VertexBindingDescriptions[i].Stride * 23;
+                hash64 ^= vertexBindingDescriptionsSpan[i].Binding * 23;
+                hash64 ^= (uint)vertexBindingDescriptionsSpan[i].InputRate * 23;
+                hash64 ^= vertexBindingDescriptionsSpan[i].Stride * 23;
             }
+            
+            ReadOnlySpan<PipelineColorBlendAttachmentState> colorBlendAttachmentStateSpan = ColorBlendAttachmentState.AsSpan();
 
             for (int i = 0; i < (int)ColorBlendAttachmentStateCount; i++)
             {
-                hash64 ^= ColorBlendAttachmentState[i].BlendEnable * 23;
-                hash64 ^= (uint)ColorBlendAttachmentState[i].SrcColorBlendFactor * 23;
-                hash64 ^= (uint)ColorBlendAttachmentState[i].DstColorBlendFactor * 23;
-                hash64 ^= (uint)ColorBlendAttachmentState[i].ColorBlendOp * 23;
-                hash64 ^= (uint)ColorBlendAttachmentState[i].SrcAlphaBlendFactor * 23;
-                hash64 ^= (uint)ColorBlendAttachmentState[i].DstAlphaBlendFactor * 23;
-                hash64 ^= (uint)ColorBlendAttachmentState[i].AlphaBlendOp * 23;
-                hash64 ^= (uint)ColorBlendAttachmentState[i].ColorWriteMask * 23;
+                hash64 ^= colorBlendAttachmentStateSpan[i].BlendEnable * 23;
+                hash64 ^= (uint)colorBlendAttachmentStateSpan[i].SrcColorBlendFactor * 23;
+                hash64 ^= (uint)colorBlendAttachmentStateSpan[i].DstColorBlendFactor * 23;
+                hash64 ^= (uint)colorBlendAttachmentStateSpan[i].ColorBlendOp * 23;
+                hash64 ^= (uint)colorBlendAttachmentStateSpan[i].SrcAlphaBlendFactor * 23;
+                hash64 ^= (uint)colorBlendAttachmentStateSpan[i].DstAlphaBlendFactor * 23;
+                hash64 ^= (uint)colorBlendAttachmentStateSpan[i].AlphaBlendOp * 23;
+                hash64 ^= (uint)colorBlendAttachmentStateSpan[i].ColorWriteMask * 23;
             }
+            
+            ReadOnlySpan<Format> attachmentFormatsSpan = AttachmentFormats.AsSpan();
+            int attachmentFormatsCount = (int)ColorBlendAttachmentStateCount + (HasDepthStencil ? 1 : 0);
 
-            for (int i = 0; i < (int)ColorBlendAttachmentStateCount; i++)
+            for (int i = 0; i < attachmentFormatsCount; i++)
             {
-                hash64 ^= (uint)AttachmentFormats[i] * 23;
+                hash64 ^= (uint)attachmentFormatsSpan[i] * 23;
             }
 
             return (int)hash64 ^ ((int)(hash64 >> 32) * 17);

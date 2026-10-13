@@ -1,5 +1,6 @@
 using Ryujinx.Common;
 using Ryujinx.Graphics.GAL;
+using Ryujinx.Memory;
 using Ryujinx.Graphics.Gpu.Engine.Threed;
 using Ryujinx.Graphics.Gpu.Engine.Twod;
 using Ryujinx.Graphics.Gpu.Engine.Types;
@@ -8,6 +9,7 @@ using Ryujinx.Graphics.Texture;
 using Ryujinx.Memory.Range;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace Ryujinx.Graphics.Gpu.Image
@@ -57,23 +59,24 @@ namespace Ryujinx.Graphics.Gpu.Image
             _context = context;
             _physicalMemory = physicalMemory;
 
-            _textures = new MultiRangeList<Texture>();
-            _partiallyMappedTextures = new HashSet<Texture>();
+            _textures = [];
+            _partiallyMappedTextures = [];
 
             _texturesLock = new ReaderWriterLockSlim();
 
             _textureOverlaps = new Texture[OverlapsBufferInitialCapacity];
             _overlapInfo = new OverlapInfo[OverlapsBufferInitialCapacity];
 
-            _cache = new AutoDeleteCache();
+            _cache = [];
         }
 
         /// <summary>
         /// Initializes the cache, setting the maximum texture capacity for the specified GPU context.
         /// </summary>
-        public void Initialize()
+        /// <param name="cpuMemorySize">The amount of physical CPU Memory Avaiable on the device.</param>
+        public void Initialize(ulong cpuMemorySize)
         {
-            _cache.Initialize(_context);
+            _cache.Initialize(_context, cpuMemorySize);
         }
 
         /// <summary>
@@ -126,7 +129,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                             // Any texture that has been unmapped at any point or is partially unmapped
                             // should update their pool references after the remap completes.
 
-                            foreach (var texture in _partiallyMappedTextures)
+                            foreach (Texture texture in _partiallyMappedTextures)
                             {
                                 texture.UpdatePoolMappings();
                             }
@@ -178,7 +181,7 @@ namespace Ryujinx.Graphics.Gpu.Image
 
             int widthAlignment = (info.IsLinear ? Constants.StrideAlignment : Constants.GobAlignment) / info.FormatInfo.BytesPerPixel;
 
-            if (!(info.FormatInfo.Format.IsDepthOrStencil() || info.FormatInfo.Components == 1))
+            if (!(info.FormatInfo.Format.IsDepthOrStencil || info.FormatInfo.Components == 1))
             {
                 // Discount square textures that aren't depth-stencil like. (excludes game textures, cubemap faces, most 3D texture LUT, texture atlas)
                 // Detect if the texture is possibly square. Widths may be aligned, so to remove the uncertainty we align both the width and height.
@@ -213,6 +216,16 @@ namespace Ryujinx.Graphics.Gpu.Image
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Evicts cached textures in response to host memory pressure.
+        /// </summary>
+        /// <param name="level">How much the host wants back</param>
+        /// <returns>Number of bytes evicted</returns>
+        public ulong Trim(MemoryPressureLevel level)
+        {
+            return _cache.Trim(level);
         }
 
         /// <summary>
@@ -251,7 +264,7 @@ namespace Ryujinx.Graphics.Gpu.Image
 
             for (int i = 0; i < overlapCount; i++)
             {
-                var other = _textureOverlaps[i];
+                Texture other = _textureOverlaps[i];
 
                 if (texture != other &&
                     (texture.IsViewCompatible(other.Info, other.Range, true, other.LayerSize, _context.Capabilities, out _, out _) != TextureViewCompatibility.Incompatible ||
@@ -484,7 +497,7 @@ namespace Ryujinx.Graphics.Gpu.Image
 
             int layerSize = !isLinear ? colorState.LayerSize * 4 : 0;
 
-            var flags = TextureSearchFlags.WithUpscale;
+            TextureSearchFlags flags = TextureSearchFlags.WithUpscale;
 
             if (discard)
             {
@@ -558,7 +571,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                 target,
                 formatInfo);
 
-            var flags = TextureSearchFlags.WithUpscale;
+            TextureSearchFlags flags = TextureSearchFlags.WithUpscale;
 
             if (discard)
             {
@@ -890,7 +903,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                         // otherwise we only need the data that is copied from the existing texture, without loading the CPU data.
                         bool updateNewTexture = texture.Width > overlap.Width || texture.Height > overlap.Height;
 
-                        texture.InitializeGroup(true, true, new List<TextureIncompatibleOverlap>());
+                        texture.InitializeGroup(true, true, []);
                         texture.InitializeData(false, updateNewTexture);
 
                         overlap.SynchronizeMemory();
@@ -945,7 +958,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                 bool hasLayerViews = false;
                 bool hasMipViews = false;
 
-                var incompatibleOverlaps = new List<TextureIncompatibleOverlap>();
+                List<TextureIncompatibleOverlap> incompatibleOverlaps = [];
 
                 for (int index = 0; index < overlapsCount; index++)
                 {
@@ -997,7 +1010,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                     {
                         bool dataOverlaps = texture.DataOverlaps(overlap, compatibility);
 
-                        if (!overlap.IsView && dataOverlaps && !incompatibleOverlaps.Exists(incompatible => incompatible.Group == overlap.Group))
+                        if (!overlap.IsView && dataOverlaps && !incompatibleOverlaps.Any(incompatible => incompatible.Group == overlap.Group))
                         {
                             incompatibleOverlaps.Add(new TextureIncompatibleOverlap(overlap.Group, compatibility));
                         }

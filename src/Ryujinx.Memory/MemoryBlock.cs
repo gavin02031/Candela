@@ -14,17 +14,17 @@ namespace Ryujinx.Memory
         private readonly bool _viewCompatible;
         private readonly bool _forJit;
         private DualMappedJitAllocator _dualMappedAllocator;
-        private IntPtr _sharedMemory;
-        private IntPtr _pointer;
+        private nint _sharedMemory;
+        private nint _pointer;
         private IntPtr _rxPointer;
 
         /// <summary>
-        /// Pointer to the memory block data (RW).
+        /// Pointer to the memory block data.
         /// </summary>
-        public IntPtr Pointer => _pointer;
+        public nint Pointer => _pointer;
 
         /// <summary>
-        /// Pointer to the RX mapping (for execution), or IntPtr.Zero if not dual-mapped.
+        /// Pointer to the RX mapping, or returning _pointer if not dual-mapped.
         /// </summary>
         public IntPtr RxPointer => _rxPointer;
 
@@ -42,14 +42,12 @@ namespace Ryujinx.Memory
         /// <exception cref="PlatformNotSupportedException">Throw when the current platform is not supported</exception>
         public MemoryBlock(ulong size, MemoryAllocationFlags flags = MemoryAllocationFlags.None)
         {
-            Size = size;
-            if (flags.HasFlag(MemoryAllocationFlags.DualMapping))
+            if (flags.HasFlag(MemoryAllocationFlags.DualMapping) && OperatingSystem.IsIOS())
             {
                 _dualMappedAllocator = new DualMappedJitAllocator(size);
                 _pointer = _dualMappedAllocator.RwPtr;
                 _rxPointer = _dualMappedAllocator.RxPtr;
                 _forJit = true;
-                return;
             }
             else if (flags.HasFlag(MemoryAllocationFlags.Mirrorable))
             {
@@ -74,7 +72,10 @@ namespace Ryujinx.Memory
                 _pointer = MemoryManagement.Allocate(size, _forJit);
             }
 
-            _rxPointer = _pointer;
+            Size = size;
+
+            if (_dualMappedAllocator == null)
+                _rxPointer = _pointer;
         }
 
         /// <summary>
@@ -84,14 +85,14 @@ namespace Ryujinx.Memory
         /// <param name="sharedMemory">Shared memory to use as backing storage for this block</param>
         /// <exception cref="SystemException">Throw when there's an error while mapping the shared memory</exception>
         /// <exception cref="PlatformNotSupportedException">Throw when the current platform is not supported</exception>
-        private MemoryBlock(ulong size, IntPtr sharedMemory)
+        private MemoryBlock(ulong size, nint sharedMemory)
         {
             _pointer = MemoryManagement.MapSharedMemory(sharedMemory, size);
             Size = size;
             _usesSharedMemory = true;
             _isMirror = true;
         }
-        
+
         /// <summary>
         /// Creates a memory block that shares the backing storage with this block.
         /// The memory and page commitments will be shared, however memory protections are separate.
@@ -102,7 +103,7 @@ namespace Ryujinx.Memory
         /// <exception cref="PlatformNotSupportedException">Throw when the current platform is not supported</exception>
         public MemoryBlock CreateMirror()
         {
-            if (_sharedMemory == IntPtr.Zero)
+            if (_sharedMemory == nint.Zero)
             {
                 throw new NotSupportedException("Mirroring is not supported on the memory block because the Mirrorable flag was not set.");
             }
@@ -116,6 +117,8 @@ namespace Ryujinx.Memory
         /// </summary>
         public void Detach()
         {
+            if (!OperatingSystem.IsIOS()) { return; }
+
             if (_dualMappedAllocator != null && DualMappedJitAllocator.hasTXM)
             {
                 DualMappedJitAllocator.BreakJITDetach();
@@ -151,6 +154,45 @@ namespace Ryujinx.Memory
         }
 
         /// <summary>
+        /// Attempts to decommit a region of memory, returning false rather than throwing if the
+        /// host refuses to release the pages. The range must be host page aligned; callers are
+        /// responsible for making sure nothing else is still using it.
+        /// </summary>
+        /// <param name="offset">Starting offset of the range to be decommitted</param>
+        /// <param name="size">Size of the range to be decommitted</param>
+        /// <returns>True if the pages were released, false otherwise</returns>
+        public bool TryDecommit(ulong offset, ulong size)
+        {
+            return MemoryManagement.TryDecommit(GetPointerInternal(offset, size), size);
+        }
+
+        /// <summary>
+        /// Drops the physical pages backing a region, without decommitting it or changing its
+        /// protection, so the region stays mapped and usable. On platforms that zero fault in
+        /// (Darwin, Linux) it reads back as zero afterwards; on Windows the previous contents may
+        /// still be visible, so do not rely on this to clear data.
+        /// </summary>
+        /// <param name="offset">Starting offset of the range to discard, host page aligned</param>
+        /// <param name="size">Size of the range to discard, host page aligned</param>
+        /// <returns>True if the pages were released, false otherwise</returns>
+        public bool TryDiscard(ulong offset, ulong size)
+        {
+            return MemoryManagement.TryDiscard(GetPointerInternal(offset, size), size);
+        }
+
+        /// <summary>
+        /// Announces that a region previously passed to <see cref="TryDiscard"/> is about to be
+        /// used again, so the host stops counting it as reclaimable. Does not restore contents.
+        /// </summary>
+        /// <param name="offset">Starting offset of the range, host page aligned</param>
+        /// <param name="size">Size of the range, host page aligned</param>
+        /// <returns>True if the host accepted the hint, false otherwise</returns>
+        public bool TryUndiscard(ulong offset, ulong size)
+        {
+            return MemoryManagement.TryUndiscard(GetPointerInternal(offset, size), size);
+        }
+
+        /// <summary>
         /// Maps a view of memory from another memory block.
         /// </summary>
         /// <param name="srcBlock">Memory block from where the backing memory will be taken</param>
@@ -162,7 +204,7 @@ namespace Ryujinx.Memory
         /// <exception cref="InvalidMemoryRegionException">Throw when either <paramref name="offset"/> or <paramref name="size"/> are out of range</exception>
         public void MapView(MemoryBlock srcBlock, ulong srcOffset, ulong dstOffset, ulong size)
         {
-            if (srcBlock._sharedMemory == IntPtr.Zero)
+            if (srcBlock._sharedMemory == nint.Zero)
             {
                 throw new ArgumentException("The source memory block is not mirrorable, and thus cannot be mapped on the current block.");
             }
@@ -193,8 +235,7 @@ namespace Ryujinx.Memory
         /// <exception cref="MemoryProtectionException">Throw when <paramref name="permission"/> is invalid</exception>
         public void Reprotect(ulong offset, ulong size, MemoryPermission permission, bool throwOnFail = true)
         {
-            if (_rxPointer == _pointer)
-            {
+            if (_rxPointer == _pointer) {
                 MemoryManagement.Reprotect(GetPointerInternal(offset, size), size, permission, _viewCompatible, throwOnFail);
             }
         }
@@ -304,9 +345,9 @@ namespace Ryujinx.Memory
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe ref T GetRef<T>(ulong offset) where T : unmanaged
         {
-            IntPtr ptr = _pointer;
+            nint ptr = _pointer;
 
-            ObjectDisposedException.ThrowIf(ptr == IntPtr.Zero, this);
+            ObjectDisposedException.ThrowIf(ptr == nint.Zero, this);
 
             int size = Unsafe.SizeOf<T>();
 
@@ -329,14 +370,14 @@ namespace Ryujinx.Memory
         /// <exception cref="ObjectDisposedException">Throw when the memory block has already been disposed</exception>
         /// <exception cref="InvalidMemoryRegionException">Throw when either <paramref name="offset"/> or <paramref name="size"/> are out of range</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public IntPtr GetPointer(ulong offset, ulong size) => GetPointerInternal(offset, size);
+        public nint GetPointer(ulong offset, ulong size) => GetPointerInternal(offset, size);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private IntPtr GetPointerInternal(ulong offset, ulong size)
+        private nint GetPointerInternal(ulong offset, ulong size)
         {
-            IntPtr ptr = _pointer;
+            nint ptr = _pointer;
 
-            ObjectDisposedException.ThrowIf(ptr == IntPtr.Zero, this);
+            ObjectDisposedException.ThrowIf(ptr == nint.Zero, this);
 
             ulong endOffset = offset + size;
 
@@ -395,9 +436,9 @@ namespace Ryujinx.Memory
         /// <param name="pointer">Native pointer</param>
         /// <param name="offset">Offset to add</param>
         /// <returns>Native pointer with the added offset</returns>
-        private static IntPtr PtrAddr(IntPtr pointer, ulong offset)
+        private static nint PtrAddr(nint pointer, ulong offset)
         {
-            return new IntPtr(pointer.ToInt64() + (long)offset);
+            return new nint(pointer.ToInt64() + (long)offset);
         }
 
         /// <summary>
@@ -417,15 +458,16 @@ namespace Ryujinx.Memory
 
         private void FreeMemory()
         {
-            IntPtr ptr = Interlocked.Exchange(ref _pointer, IntPtr.Zero);
+            nint ptr = Interlocked.Exchange(ref _pointer, nint.Zero);
 
-            if (_dualMappedAllocator != null)
+            // If pointer is null, the memory was already freed or never allocated.
+            if (_dualMappedAllocator != null && OperatingSystem.IsIOS())
             {
                 _dualMappedAllocator.Dispose();
                 _dualMappedAllocator = null;
                 _rxPointer = IntPtr.Zero;
             }
-            else if (ptr != IntPtr.Zero)
+            else if (ptr != nint.Zero)
             {
                 if (_usesSharedMemory)
                 {
@@ -439,9 +481,9 @@ namespace Ryujinx.Memory
 
             if (!_isMirror)
             {
-                IntPtr sharedMemory = Interlocked.Exchange(ref _sharedMemory, IntPtr.Zero);
+                nint sharedMemory = Interlocked.Exchange(ref _sharedMemory, nint.Zero);
 
-                if (sharedMemory != IntPtr.Zero)
+                if (sharedMemory != nint.Zero)
                 {
                     MemoryManagement.DestroySharedMemory(sharedMemory);
                 }
@@ -462,7 +504,7 @@ namespace Ryujinx.Memory
                     return OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17134);
                 }
 
-                return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS() || OperatingSystem.IsIOS();
+                return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()  || OperatingSystem.IsIOS();
             }
 
             return true;
@@ -471,6 +513,11 @@ namespace Ryujinx.Memory
         public static ulong GetPageSize()
         {
             return (ulong)Environment.SystemPageSize;
+        }
+
+        public static bool DualMappedEnabled()
+        {
+            return OperatingSystem.IsIOS() ? DualMappedJitAllocator.dualMappingEnabled : false;
         }
 
         private static void ThrowInvalidMemoryRegionException() => throw new InvalidMemoryRegionException();

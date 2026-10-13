@@ -1,3 +1,4 @@
+using Ryujinx.Common.Configuration;
 using System;
 
 namespace Ryujinx.Graphics.GAL
@@ -8,11 +9,12 @@ namespace Ryujinx.Graphics.GAL
 
         void SetSize(int width, int height);
 
-        void ChangeVSyncMode(bool vsyncEnabled);
+        void ChangeVSyncMode(VSyncMode vSyncMode);
 
         void SetAntiAliasing(AntiAliasing antialiasing);
         void SetScalingFilter(ScalingFilter type);
         void SetScalingFilterLevel(float level);
+        void SetMetalFxUpscaleFactor(float factor);
         void SetColorSpacePassthrough(bool colorSpacePassThroughEnabled);
     }
 }

@@ -11,7 +11,6 @@ namespace Ryujinx.Graphics.Vulkan
 {
     readonly struct VulkanPhysicalDevice
     {
-        public static uint MaxPerStageDescriptorSamplers = 33;
         public readonly PhysicalDevice PhysicalDevice;
         public readonly PhysicalDeviceFeatures PhysicalDeviceFeatures;
         public readonly PhysicalDeviceProperties PhysicalDeviceProperties;
@@ -25,21 +24,18 @@ namespace Ryujinx.Graphics.Vulkan
             PhysicalDevice = physicalDevice;
             PhysicalDeviceFeatures = api.GetPhysicalDeviceFeature(PhysicalDevice);
 
-            api.GetPhysicalDeviceProperties(PhysicalDevice, out var physicalDeviceProperties);
+            api.GetPhysicalDeviceProperties(PhysicalDevice, out PhysicalDeviceProperties physicalDeviceProperties);
             PhysicalDeviceProperties = physicalDeviceProperties;
 
             api.GetPhysicalDeviceMemoryProperties(PhysicalDevice, out PhysicalDeviceMemoryProperties);
 
             unsafe
             {
-                DeviceName = Marshal.PtrToStringAnsi((IntPtr)physicalDeviceProperties.DeviceName);
+                DeviceName = Marshal.PtrToStringAnsi((nint)physicalDeviceProperties.DeviceName);
             }
 
-            Console.WriteLine($"Device: {DeviceName}");
-            Console.WriteLine($"Max per-stage descriptor samplers: {physicalDeviceProperties.Limits.MaxPerStageDescriptorSamplers}");
-            Console.WriteLine($"Max descriptor set samplers: {physicalDeviceProperties.Limits.MaxDescriptorSetSamplers}");
-            Console.WriteLine($"Max per-stage resources: {physicalDeviceProperties.Limits.MaxPerStageResources}");
-            VulkanPhysicalDevice.MaxPerStageDescriptorSamplers = physicalDeviceProperties.Limits.MaxPerStageDescriptorSamplers;
+            // Effects.MetalFxBridge.TryProbe();
+
             uint propertiesCount = 0;
 
             api.GetPhysicalDeviceQueueFamilyProperties(physicalDevice, SpanHelpers.AsSpan(ref propertiesCount), Span<QueueFamilyProperties>.Empty);
@@ -56,13 +52,36 @@ namespace Ryujinx.Graphics.Vulkan
 
             unsafe
             {
-                DeviceExtensions = extensionProperties.Select(x => Marshal.PtrToStringAnsi((IntPtr)x.ExtensionName)).ToImmutableHashSet();
+                DeviceExtensions = extensionProperties.Select(x => Marshal.PtrToStringAnsi((nint)x.ExtensionName)).ToImmutableHashSet();
             }
         }
 
         public string Id => $"0x{PhysicalDeviceProperties.VendorID:X}_0x{PhysicalDeviceProperties.DeviceID:X}";
 
         public bool IsDeviceExtensionPresent(string extension) => DeviceExtensions.Contains(extension);
+
+        public unsafe bool SupportsPipelineCreationCacheControl(Vk api)
+        {
+            if (!IsDeviceExtensionPresent("VK_EXT_pipeline_creation_cache_control"))
+            {
+                return false;
+            }
+
+            PhysicalDevicePipelineCreationCacheControlFeaturesEXT featuresPipelineCreationCacheControl = new()
+            {
+                SType = StructureType.PhysicalDevicePipelineCreationCacheControlFeaturesExt,
+            };
+
+            PhysicalDeviceFeatures2 features2 = new()
+            {
+                SType = StructureType.PhysicalDeviceFeatures2,
+                PNext = &featuresPipelineCreationCacheControl,
+            };
+
+            api.GetPhysicalDeviceFeatures2(PhysicalDevice, &features2);
+
+            return featuresPipelineCreationCacheControl.PipelineCreationCacheControl;
+        }
 
         public unsafe bool TryGetPhysicalDeviceDriverPropertiesKHR(Vk api, out PhysicalDeviceDriverPropertiesKHR res)
         {

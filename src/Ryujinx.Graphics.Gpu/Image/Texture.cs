@@ -7,7 +7,6 @@ using Ryujinx.Graphics.Texture.Astc;
 using Ryujinx.Memory;
 using Ryujinx.Memory.Range;
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -166,6 +165,33 @@ namespace Ryujinx.Graphics.Gpu.Image
         public ulong Size => (ulong)_sizeInfo.TotalSize;
 
         /// <summary>
+        /// Estimated memory retained by this texture while it is in the deletion cache.
+        /// </summary>
+        public ulong CacheSize { get; set; }
+
+        /// <summary>
+        /// Estimates host texture storage and any retained CPU-side comparison copy.
+        /// </summary>
+        public ulong GetEstimatedHostSize()
+        {
+            ulong size = TextureCache.GetCreateInfo(Info, _context.Capabilities, ScaleFactor).GetTotalSize();
+
+            if (_flushHostTexture != null)
+            {
+                size += TextureCache.GetCreateInfo(Info, _context.Capabilities, 1f).GetTotalSize();
+            }
+
+            if (_setHostTexture != null)
+            {
+                size += TextureCache.GetCreateInfo(Info, _context.Capabilities, 1f).GetTotalSize();
+            }
+
+            size += (ulong)(_currentData?.Length ?? 0);
+
+            return size;
+        }
+
+        /// <summary>
         /// Whether or not the texture belongs is a view.
         /// </summary>
         public bool IsView => _viewStorage != this;
@@ -261,8 +287,8 @@ namespace Ryujinx.Graphics.Gpu.Image
 
             _viewStorage = this;
 
-            _views = new List<Texture>();
-            _poolOwners = new List<TexturePoolOwner>();
+            _views = [];
+            _poolOwners = [];
         }
 
         /// <summary>
@@ -537,7 +563,7 @@ namespace Ryujinx.Graphics.Gpu.Image
 
                 // All views must be recreated against the new storage.
 
-                foreach (var view in _views)
+                foreach (Texture view in _views)
                 {
                     Logger.Debug?.Print(LogClass.Gpu, $"  Recreating view {Info.Width}x{Info.Height} {Info.FormatInfo.Format}.");
                     view.ScaleFactor = scale;
@@ -554,7 +580,7 @@ namespace Ryujinx.Graphics.Gpu.Image
             {
                 ScaleMode = newScaleMode;
 
-                foreach (var view in _views)
+                foreach (Texture view in _views)
                 {
                     view.ScaleMode = newScaleMode;
                 }
@@ -640,11 +666,12 @@ namespace Ryujinx.Graphics.Gpu.Image
         {
             ReadOnlySpan<byte> data = _physicalMemory.GetSpan(Range);
 
-            // If the host does not support ASTC compression, we need to do the decompression.
-            // The decompression is slow, so we want to avoid it as much as possible.
+            // If the host does not support the compressed format, we need to do the decompression,
+            // and possibly a re-compression to a format the host does support on top of that.
+            // That is slow, so we want to avoid it as much as possible.
             // This does a byte-by-byte check and skips the update if the data is equal in this case.
-            // This improves the speed on applications that overwrites ASTC data without changing anything.
-            if (Info.FormatInfo.Format.IsAstc() && !_context.Capabilities.SupportsAstcCompression)
+            // This improves the speed on applications that overwrites the data without changing anything.
+            if (TextureCompatibility.IsConversionSlow(Info, _context.Capabilities))
             {
                 if (_updateCount < ByteComparisonSwitchThreshold)
                 {
@@ -682,7 +709,7 @@ namespace Ryujinx.Graphics.Gpu.Image
         }
 
         /// <summary>
-        /// Uploads new texture data to the host GPU. The data passed as a <see cref="IMemoryOwner{Byte}" /> will be disposed when the operation completes.
+        /// Uploads new texture data to the host GPU.
         /// </summary>
         /// <param name="data">New data</param>
         public void SetData(MemoryOwner<byte> data)
@@ -699,7 +726,7 @@ namespace Ryujinx.Graphics.Gpu.Image
         }
 
         /// <summary>
-        /// Uploads new texture data to the host GPU for a specific layer/level. The data passed as a <see cref="IMemoryOwner{Byte}" /> will be disposed when the operation completes.
+        /// Uploads new texture data to the host GPU for a specific layer/level.
         /// </summary>
         /// <param name="data">New data</param>
         /// <param name="layer">Target layer</param>
@@ -716,7 +743,7 @@ namespace Ryujinx.Graphics.Gpu.Image
         }
 
         /// <summary>
-        /// Uploads new texture data to the host GPU for a specific layer/level and 2D sub-region. The data passed as a <see cref="IMemoryOwner{Byte}" /> will be disposed when the operation completes.
+        /// Uploads new texture data to the host GPU for a specific layer/level and 2D sub-region.
         /// </summary>
         /// <param name="data">New data</param>
         /// <param name="layer">Target layer</param>
@@ -731,6 +758,40 @@ namespace Ryujinx.Graphics.Gpu.Image
             _currentData = null;
 
             _hasData = true;
+        }
+
+        /// <summary>
+        /// Re-compresses texture data that was decompressed on the CPU, if the host GPU supports a compressed format that can hold it and re-compression is enabled.
+        /// </summary>
+        /// <param name="decoded">Decompressed RGBA8 texture data. Always disposed by this method</param>
+        /// <param name="width">Texture width</param>
+        /// <param name="height">Texture height</param>
+        /// <param name="sliceDepth">Texture depth of the data being converted</param>
+        /// <param name="levels">Mipmap level count</param>
+        /// <param name="layers">Texture layer count</param>
+        /// <returns>The re-compressed data, or <paramref name="decoded"/> if it was left uncompressed</returns>
+        private MemoryOwner<byte> Recompress(MemoryOwner<byte> decoded, int width, int height, int sliceDepth, int levels, int layers)
+        {
+            switch (TextureCompatibility.GetRecompressionFormat(Target, _context.Capabilities))
+            {
+                case RecompressionFormat.Bc7:
+                    using (decoded)
+                    {
+                        return BCnEncoder.EncodeBC7(decoded.Memory, width, height, sliceDepth, levels, layers);
+                    }
+                case RecompressionFormat.Etc2Rgba:
+                    using (decoded)
+                    {
+                        return ETC2Encoder.EncodeRgba(decoded.Memory, width, height, sliceDepth, levels, layers);
+                    }
+                case RecompressionFormat.Astc4x4:
+                    using (decoded)
+                    {
+                        return AstcEncoder.Encode4x4(decoded.Memory, width, height, sliceDepth, levels, layers);
+                    }
+                default:
+                    return decoded;
+            }
         }
 
         /// <summary>
@@ -793,7 +854,7 @@ namespace Ryujinx.Graphics.Gpu.Image
             // Handle compressed cases not supported by the host:
             // - ASTC is usually not supported on desktop cards.
             // - BC4/BC5 is not supported on 3D textures.
-            if (!_context.Capabilities.SupportsAstcCompression && Format.IsAstc())
+            if (!_context.Capabilities.SupportsAstcCompression && Format.IsAstc)
             {
                 using (result)
                 {
@@ -813,18 +874,10 @@ namespace Ryujinx.Graphics.Gpu.Image
                         Logger.Debug?.Print(LogClass.Gpu, $"Invalid ASTC texture at 0x{Info.GpuAddress:X} ({texInfo}).");
                     }
 
-                    if (GraphicsConfig.EnableTextureRecompression)
-                    {
-                        using (decoded)
-                        {
-                            return BCnEncoder.EncodeBC7(decoded.Memory, width, height, sliceDepth, levels, layers);
-                        }
-                    }
-
-                    return decoded;
+                    return Recompress(decoded, width, height, sliceDepth, levels, layers);
                 }
             }
-            else if (!_context.Capabilities.SupportsEtc2Compression && Format.IsEtc2())
+            else if (!_context.Capabilities.SupportsEtc2Compression && Format.IsEtc2)
             {
                 switch (Format)
                 {
@@ -850,49 +903,99 @@ namespace Ryujinx.Graphics.Gpu.Image
             }
             else if (!TextureCompatibility.HostSupportsBcFormat(Format, Target, _context.Capabilities))
             {
+                Format hostFormat = TextureCompatibility.ToHostCompatibleFormat(Info, _context.Capabilities).Format;
+
                 switch (Format)
                 {
                     case Format.Bc1RgbaSrgb:
                     case Format.Bc1RgbaUnorm:
                         using (result)
                         {
-                            return BCnDecoder.DecodeBC1(result.Span, width, height, sliceDepth, levels, layers);
+                            if (hostFormat is Format.Etc2RgbPtaSrgb or Format.Etc2RgbPtaUnorm)
+                            {
+                                return ETC2Transcoder.TranscodeBC1ToEtc2Pta(result.Memory);
+                            }
+
+                            MemoryOwner<byte> decodedBc1 = BCnDecoder.DecodeBC1(result.Span, width, height, sliceDepth, levels, layers);
+
+                            return Recompress(decodedBc1, width, height, sliceDepth, levels, layers);
                         }
                     case Format.Bc2Srgb:
                     case Format.Bc2Unorm:
                         using (result)
                         {
-                            return BCnDecoder.DecodeBC2(result.Span, width, height, sliceDepth, levels, layers);
+                            if (hostFormat is Format.Etc2RgbaSrgb or Format.Etc2RgbaUnorm)
+                            {
+                                return ETC2Transcoder.TranscodeBC2ToEtc2Rgba(result.Memory, width, height, sliceDepth, levels, layers);
+                            }
+
+                            MemoryOwner<byte> decodedBc2 = BCnDecoder.DecodeBC2(result.Span, width, height, sliceDepth, levels, layers);
+
+                            return Recompress(decodedBc2, width, height, sliceDepth, levels, layers);
                         }
                     case Format.Bc3Srgb:
                     case Format.Bc3Unorm:
                         using (result)
                         {
-                            return BCnDecoder.DecodeBC3(result.Span, width, height, sliceDepth, levels, layers);
+                            if (hostFormat is Format.Etc2RgbaSrgb or Format.Etc2RgbaUnorm)
+                            {
+                                return ETC2Transcoder.TranscodeBC3ToEtc2Rgba(result.Memory, width, height, sliceDepth, levels, layers);
+                            }
+
+                            MemoryOwner<byte> decodedBc3 = BCnDecoder.DecodeBC3(result.Span, width, height, sliceDepth, levels, layers);
+
+                            return Recompress(decodedBc3, width, height, sliceDepth, levels, layers);
                         }
                     case Format.Bc4Snorm:
                     case Format.Bc4Unorm:
                         using (result)
                         {
+                            if (hostFormat is Format.EacR11Unorm or Format.EacR11Snorm)
+                            {
+                                return ETC2Transcoder.TranscodeBC4ToEacR11(result.Memory, Format == Format.Bc4Snorm);
+                            }
+
                             return BCnDecoder.DecodeBC4(result.Span, width, height, sliceDepth, levels, layers, Format == Format.Bc4Snorm);
                         }
                     case Format.Bc5Snorm:
                     case Format.Bc5Unorm:
                         using (result)
                         {
+                            if (hostFormat is Format.EacR11G11Unorm or Format.EacR11G11Snorm)
+                            {
+                                return ETC2Transcoder.TranscodeBC5ToEacRG11(result.Memory, Format == Format.Bc5Snorm);
+                            }
+
                             return BCnDecoder.DecodeBC5(result.Span, width, height, sliceDepth, levels, layers, Format == Format.Bc5Snorm);
                         }
                     case Format.Bc6HSfloat:
                     case Format.Bc6HUfloat:
                         using (result)
                         {
-                            return BCnDecoder.DecodeBC6(result.Span, width, height, sliceDepth, levels, layers, Format == Format.Bc6HSfloat);
+                            MemoryOwner<byte> decodedBc6 = BCnDecoder.DecodeBC6(result.Span, width, height, sliceDepth, levels, layers, Format == Format.Bc6HSfloat);
+
+                            if (hostFormat == Format.R11G11B10Float)
+                            {
+                                using (decodedBc6)
+                                {
+                                    return PixelConverter.ConvertR16G16B16A16FloatToR11G11B10Float(decodedBc6.Span);
+                                }
+                            }
+
+                            return decodedBc6;
                         }
                     case Format.Bc7Srgb:
                     case Format.Bc7Unorm:
                         using (result)
                         {
-                            return BCnDecoder.DecodeBC7(result.Span, width, height, sliceDepth, levels, layers);
+                            if (hostFormat is Format.Etc2RgbaSrgb or Format.Etc2RgbaUnorm)
+                            {
+                                return ETC2Transcoder.TranscodeBC7ToEtc2Rgba(result.Memory, width, height, sliceDepth, levels, layers);
+                            }
+
+                            MemoryOwner<byte> decodedBc7 = BCnDecoder.DecodeBC7(result.Span, width, height, sliceDepth, levels, layers);
+
+                            return Recompress(decodedBc7, width, height, sliceDepth, levels, layers);
                         }
                 }
             }
@@ -900,7 +1003,7 @@ namespace Ryujinx.Graphics.Gpu.Image
             {
                 using (result)
                 {
-                    var converted = PixelConverter.ConvertR4G4ToR4G4B4A4(result.Span, width);
+                    MemoryOwner<byte> converted = PixelConverter.ConvertR4G4ToR4G4B4A4(result.Span, width);
 
                     if (_context.Capabilities.SupportsR4G4B4A4Format)
                     {
@@ -925,7 +1028,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                     }
                 }
             }
-            else if (!_context.Capabilities.Supports5BitComponentFormat && Format.Is16BitPacked())
+            else if (!_context.Capabilities.Supports5BitComponentFormat && Format.Is16BitPacked)
             {
                 switch (Format)
                 {
@@ -953,11 +1056,6 @@ namespace Ryujinx.Graphics.Gpu.Image
                             return PixelConverter.ConvertR4G4B4A4ToR8G8B8A8(result.Span, width);
                         }
                 }
-            }
-
-            if (!ReferenceEquals(linear, result))
-            {
-                linear.Dispose();
             }
 
             return result;
@@ -1257,7 +1355,7 @@ namespace Ryujinx.Graphics.Gpu.Image
             {
                 result = TextureCompatibility.PropagateViewCompatibility(result, TextureCompatibility.ViewTargetCompatible(Info, info, ref caps));
 
-                bool bothMs = Info.Target.IsMultisample() && info.Target.IsMultisample();
+                bool bothMs = Info.Target.IsMultisample && info.Target.IsMultisample;
                 if (bothMs && (Info.SamplesInX != info.SamplesInX || Info.SamplesInY != info.SamplesInY))
                 {
                     result = TextureViewCompatibility.Incompatible;
@@ -1361,7 +1459,7 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// <returns>True if anisotropic filtering can be forced, false otherwise</returns>
         private bool CanTextureForceAnisotropy()
         {
-            if (!(Target == Target.Texture2D || Target == Target.Texture2DArray))
+            if (Target is not (Target.Texture2D or Target.Texture2DArray))
             {
                 return false;
             }
@@ -1385,16 +1483,16 @@ namespace Ryujinx.Graphics.Gpu.Image
             {
                 case Target.Texture1D:
                 case Target.Texture1DArray:
-                    return target == Target.Texture1D || target == Target.Texture1DArray;
+                    return target is Target.Texture1D or Target.Texture1DArray;
                 case Target.Texture2D:
                 case Target.Texture2DArray:
-                    return target == Target.Texture2D || target == Target.Texture2DArray;
+                    return target is Target.Texture2D or Target.Texture2DArray;
                 case Target.Cubemap:
                 case Target.CubemapArray:
-                    return target == Target.Cubemap || target == Target.CubemapArray;
+                    return target is Target.Cubemap or Target.CubemapArray;
                 case Target.Texture2DMultisample:
                 case Target.Texture2DMultisampleArray:
-                    return target == Target.Texture2DMultisample || target == Target.Texture2DMultisampleArray;
+                    return target is Target.Texture2DMultisample or Target.Texture2DMultisampleArray;
                 case Target.Texture3D:
                     return target == Target.Texture3D;
                 default:
@@ -1634,7 +1732,15 @@ namespace Ryujinx.Graphics.Gpu.Image
         {
             lock (_poolOwners)
             {
-                int references = _poolOwners.RemoveAll(entry => entry.Pool == pool && entry.ID == id || id == -1);
+                int references = 0;
+                for (int i = 0; i < _poolOwners.Count; i++)
+                {
+                    if (_poolOwners[i].Pool == pool && _poolOwners[i].ID == id || id == -1)
+                    {
+                        _poolOwners.RemoveAt(i--);
+                        references++;
+                    }
+                }
 
                 if (references == 0)
                 {
@@ -1656,7 +1762,7 @@ namespace Ryujinx.Graphics.Gpu.Image
         {
             lock (_poolOwners)
             {
-                foreach (var owner in _poolOwners)
+                foreach (TexturePoolOwner owner in _poolOwners)
                 {
                     owner.Pool.ForceRemove(this, owner.ID, deferred);
                 }
@@ -1686,7 +1792,7 @@ namespace Ryujinx.Graphics.Gpu.Image
             {
                 ulong address = 0;
 
-                foreach (var owner in _poolOwners)
+                foreach (TexturePoolOwner owner in _poolOwners)
                 {
                     if (address == 0 || address == owner.GpuAddress)
                     {

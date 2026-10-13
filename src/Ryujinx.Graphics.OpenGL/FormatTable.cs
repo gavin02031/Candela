@@ -101,6 +101,10 @@ namespace Ryujinx.Graphics.OpenGL
             Add(Format.Etc2RgbSrgb,         new FormatInfo(4, false, false, All.CompressedSrgb8Etc2));
             Add(Format.Etc2RgbaSrgb,        new FormatInfo(4, false, false, All.CompressedSrgb8Alpha8Etc2Eac));
             Add(Format.Etc2RgbPtaSrgb,      new FormatInfo(4, false, false, All.CompressedSrgb8PunchthroughAlpha1Etc2));
+            Add(Format.EacR11Unorm,         new FormatInfo(1, true,  false, All.CompressedR11Eac));
+            Add(Format.EacR11Snorm,         new FormatInfo(1, true,  false, All.CompressedSignedR11Eac));
+            Add(Format.EacR11G11Unorm,      new FormatInfo(2, true,  false, All.CompressedRg11Eac));
+            Add(Format.EacR11G11Snorm,      new FormatInfo(2, true,  false, All.CompressedSignedRg11Eac));
             Add(Format.R8Uscaled,           new FormatInfo(1, false, true,  All.R8ui,              PixelFormat.RedInteger,     PixelType.UnsignedByte));
             Add(Format.R8Sscaled,           new FormatInfo(1, false, true,  All.R8i,               PixelFormat.RedInteger,     PixelType.Byte));
             Add(Format.R16Uscaled,          new FormatInfo(1, false, true,  All.R16ui,             PixelFormat.RedInteger,     PixelType.UnsignedShort));
@@ -228,14 +232,14 @@ namespace Ryujinx.Graphics.OpenGL
 
         public static bool IsPackedDepthStencil(Format format)
         {
-            return format == Format.D24UnormS8Uint ||
-                   format == Format.D32FloatS8Uint ||
-                   format == Format.S8UintD24Unorm;
+            return format is Format.D24UnormS8Uint or
+                   Format.D32FloatS8Uint or
+                   Format.S8UintD24Unorm;
         }
 
         public static bool IsDepthOnly(Format format)
         {
-            return format == Format.D16Unorm || format == Format.D32Float || format == Format.X8UintD24Unorm;
+            return format is Format.D16Unorm or Format.D32Float or Format.X8UintD24Unorm;
         }
     }
 }

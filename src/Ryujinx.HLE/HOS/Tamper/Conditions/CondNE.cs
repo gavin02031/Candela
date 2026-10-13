@@ -2,7 +2,7 @@ using Ryujinx.HLE.HOS.Tamper.Operations;
 
 namespace Ryujinx.HLE.HOS.Tamper.Conditions
 {
-    class CondNE<T> : ICondition where T : unmanaged
+    class CondNE<T> : ICondition where T : unmanaged, System.Numerics.IBinaryInteger<T>
     {
         private readonly IOperand _lhs;
         private readonly IOperand _rhs;
@@ -15,7 +15,7 @@ namespace Ryujinx.HLE.HOS.Tamper.Conditions
 
         public bool Evaluate()
         {
-            return TypeSafeOperations.NotEqual(_lhs.Get<T>(), _rhs.Get<T>());
+            return _lhs.Get<T>() != _rhs.Get<T>();
         }
     }
 }

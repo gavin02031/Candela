@@ -2,8 +2,10 @@ using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.GAL;
 using Silk.NET.Vulkan;
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Buffer = Silk.NET.Vulkan.Buffer;
 
 namespace Ryujinx.Graphics.Vulkan.Queries
 {
@@ -21,7 +23,7 @@ namespace Ryujinx.Graphics.Vulkan.Queries
         private QueryPool _queryPool;
 
         private readonly BufferHolder _buffer;
-        private readonly IntPtr _bufferMap;
+        private readonly nint _bufferMap;
         private readonly CounterType _type;
         private readonly bool _result32Bit;
         private readonly bool _isSupported;
@@ -44,7 +46,7 @@ namespace Ryujinx.Graphics.Vulkan.Queries
                 QueryPipelineStatisticFlags flags = type == CounterType.PrimitivesGenerated ?
                     QueryPipelineStatisticFlags.GeometryShaderPrimitivesBit : 0;
 
-                var queryPoolCreateInfo = new QueryPoolCreateInfo
+                QueryPoolCreateInfo queryPoolCreateInfo = new()
                 {
                     SType = StructureType.QueryPoolCreateInfo,
                     QueryCount = 1,
@@ -55,7 +57,7 @@ namespace Ryujinx.Graphics.Vulkan.Queries
                 gd.Api.CreateQueryPool(device, in queryPoolCreateInfo, null, out _queryPool).ThrowOnError();
             }
 
-            var buffer = gd.BufferManager.Create(gd, sizeof(long), forConditionalRendering: true);
+            BufferHolder buffer = gd.BufferManager.Create(gd, sizeof(long), forConditionalRendering: true);
 
             _bufferMap = buffer.Map(0, sizeof(long));
             _defaultValue = result32Bit ? DefaultValueInt : DefaultValue;
@@ -104,6 +106,7 @@ namespace Ryujinx.Graphics.Vulkan.Queries
                 bool isOcclusion = _type == CounterType.SamplesPassed;
                 _pipeline.BeginQuery(this, _queryPool, needsReset, isOcclusion, isOcclusion && resetSequence != null);
             }
+
             _resetSequence = null;
         }
 
@@ -145,15 +148,20 @@ namespace Ryujinx.Graphics.Vulkan.Queries
 
             if (wakeSignal == null)
             {
-                int iterations = 0;
-                while (WaitingForValue(data) && iterations++ < MaxQueryRetries)
-                {
-                    data = Marshal.ReadInt64(_bufferMap);
-                }
+                // Bound by time rather than iterations: a few thousand reads only cover a few microseconds,
+                // which slower GPUs (eg. A14) regularly miss, returning the default value as a result.
+                long startTicks = Stopwatch.GetTimestamp();
+                SpinWait spinWait = new();
 
-                if (iterations >= MaxQueryRetries)
+                while (WaitingForValue(data = Marshal.ReadInt64(_bufferMap)))
                 {
-                    Logger.Error?.Print(LogClass.Gpu, $"Error: Query result timed out. Took more than {MaxQueryRetries} tries.");
+                    if (Stopwatch.GetElapsedTime(startTicks).TotalMilliseconds >= MaxQueryRetries)
+                    {
+                        Logger.Error?.Print(LogClass.Gpu, $"Error: Query result {_type} timed out. Took more than {MaxQueryRetries}ms.");
+                        return 0;
+                    }
+
+                    spinWait.SpinOnce(-1);
                 }
             }
             else
@@ -170,13 +178,12 @@ namespace Ryujinx.Graphics.Vulkan.Queries
 
                 if (iterations >= MaxQueryRetries)
                 {
-                    Logger.Error?.Print(LogClass.Gpu, $"Error: Query result timed out. Took more than {MaxQueryRetries} tries.");
+                    Logger.Error?.Print(LogClass.Gpu, $"Error: Query result {_type} timed out. Took more than {MaxQueryRetries} tries.");
                 }
             }
 
             return data;
         }
-
 
         public void PoolReset(CommandBuffer cmd, int resetSequence)
         {
@@ -190,12 +197,7 @@ namespace Ryujinx.Graphics.Vulkan.Queries
 
         public void PoolCopy(CommandBufferScoped cbs)
         {
-            if (!_isSupported)
-            {
-                return;
-            }
-
-            var buffer = _buffer.GetBuffer(cbs.CommandBuffer, true).Get(cbs, 0, sizeof(long), true).Value;
+            Buffer buffer = _buffer.GetBuffer(cbs.CommandBuffer, true).Get(cbs, 0, sizeof(long), true).Value;
 
             QueryResultFlags flags = QueryResultFlags.ResultWaitBit;
 
@@ -222,6 +224,7 @@ namespace Ryujinx.Graphics.Vulkan.Queries
             {
                 _api.DestroyQueryPool(_device, _queryPool, null);
             }
+
             _queryPool = default;
         }
     }

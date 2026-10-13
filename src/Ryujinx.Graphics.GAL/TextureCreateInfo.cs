@@ -1,6 +1,6 @@
 using Ryujinx.Common;
-using System;
 using System.Numerics;
+using System;
 
 namespace Ryujinx.Graphics.GAL
 {
@@ -48,6 +48,7 @@ namespace Ryujinx.Graphics.GAL
             Width = width;
             Height = height;
             Depth = depth;
+            Levels = levels;
             Samples = samples;
             BlockWidth = blockWidth;
             BlockHeight = blockHeight;
@@ -87,6 +88,21 @@ namespace Ryujinx.Graphics.GAL
             return GetMipStride(level) * GetLevelHeight(level);
         }
 
+        /// <summary>
+        /// Estimates the complete host texture storage size, including mip levels, layers and samples.
+        /// </summary>
+        public ulong GetTotalSize()
+        {
+            ulong size = 0;
+
+            for (int level = 0; level < Levels; level++)
+            {
+                size += (ulong)GetMipSize(level);
+            }
+
+            return size * (ulong)Math.Max(Samples, 1);
+        }
+
         public int GetMipStride(int level)
         {
             return BitUtils.AlignUp(GetLevelWidth(level) * BytesPerPixel, 4);
@@ -114,9 +130,9 @@ namespace Ryujinx.Graphics.GAL
 
         public int GetLayers()
         {
-            if (Target == Target.Texture2DArray ||
-                Target == Target.Texture2DMultisampleArray ||
-                Target == Target.CubemapArray)
+            if (Target is Target.Texture2DArray or
+                Target.Texture2DMultisampleArray or
+                Target.CubemapArray)
             {
                 return Depth;
             }

@@ -127,7 +127,7 @@ namespace Ryujinx.Cpu.Jit.HostTracked
                 Debug.Assert(leftSize > 0);
                 Debug.Assert(rightSize > 0);
 
-                (var leftAllocation, PrivateAllocation) = PrivateAllocation.Split(leftSize);
+                (PrivateMemoryAllocation leftAllocation, PrivateAllocation) = PrivateAllocation.Split(leftSize);
 
                 PrivateMapping left = new(Address, leftSize, leftAllocation);
 
@@ -200,6 +200,8 @@ namespace Ryujinx.Cpu.Jit.HostTracked
         private readonly AddressIntrusiveRedBlackTree<PrivateMapping> _privateTree;
 
         private readonly ReaderWriterLockSlim _treeLock;
+
+        private PrivateMapping _lastPrivateMapping;
 
         private readonly ulong _hostPageSize;
 
@@ -307,7 +309,7 @@ namespace Ryujinx.Cpu.Jit.HostTracked
             ulong size,
             MemoryPermission protection,
             AddressSpacePartitioned addressSpace,
-            Action<ulong, IntPtr, ulong> updatePtCallback)
+            Action<ulong, nint, ulong> updatePtCallback)
         {
             if (_baseMemory.LazyInitMirrorForProtection(addressSpace, Address, Size, protection))
             {
@@ -317,7 +319,7 @@ namespace Ryujinx.Cpu.Jit.HostTracked
             updatePtCallback(va, _baseMemory.GetPointerForProtection(va - Address, size, protection), size);
         }
 
-        public IntPtr GetPointer(ulong va, ulong size)
+        public nint GetPointer(ulong va, ulong size)
         {
             Debug.Assert(va >= Address);
             Debug.Assert(va + size <= EndAddress);
@@ -397,7 +399,7 @@ namespace Ryujinx.Cpu.Jit.HostTracked
 
             try
             {
-                PrivateMapping map = _privateTree.GetNode(va);
+                PrivateMapping map = FindPrivateMappingLocked(va);
 
                 if (map != null && map.PrivateAllocation.IsValid)
                 {
@@ -418,6 +420,8 @@ namespace Ryujinx.Cpu.Jit.HostTracked
 
             try
             {
+                Volatile.Write(ref _lastPrivateMapping, null);
+
                 Mapping map = _mappingTree.GetNode(va);
 
                 Update(map, va, pa, size, type);
@@ -635,13 +639,26 @@ namespace Ryujinx.Cpu.Jit.HostTracked
             }
         }
 
+        private PrivateMapping FindPrivateMappingLocked(ulong va)
+        {
+            PrivateMapping map = Volatile.Read(ref _lastPrivateMapping);
+
+            if (map == null || va < map.Address || va >= map.EndAddress)
+            {
+                map = _privateTree.GetNode(va);
+                Volatile.Write(ref _lastPrivateMapping, map);
+            }
+
+            return map;
+        }
+
         public PrivateRange GetFirstPrivateAllocation(ulong va, ulong size, out ulong nextVa)
         {
             _treeLock.EnterReadLock();
 
             try
             {
-                PrivateMapping map = _privateTree.GetNode(va);
+                PrivateMapping map = FindPrivateMappingLocked(va);
 
                 nextVa = map.EndAddress;
 
@@ -671,7 +688,7 @@ namespace Ryujinx.Cpu.Jit.HostTracked
 
             try
             {
-                for (PrivateMapping map = _privateTree.GetNode(va); map != null && map.Address < endVa; map = map.Successor)
+                for (PrivateMapping map = FindPrivateMappingLocked(va); map != null && map.Address < endVa; map = map.Successor)
                 {
                     if (map.PrivateAllocation.IsValid)
                     {

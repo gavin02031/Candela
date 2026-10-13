@@ -60,8 +60,8 @@ namespace Ryujinx.Graphics.Gpu.Shader
 
             for (int index = 0; index < totalSets; index++)
             {
-                _resourceDescriptors[index] = new();
-                _resourceUsages[index] = new();
+                _resourceDescriptors[index] = [];
+                _resourceUsages[index] = [];
             }
 
             AddDescriptor(SupportBufferStages, ResourceType.UniformBuffer, uniformSetIndex, 0, 1);
@@ -280,7 +280,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
 
                 for (int index = oldLength; index <= setIndex; index++)
                 {
-                    _resourceDescriptors[index] = new();
+                    _resourceDescriptors[index] = [];
                 }
             }
 
@@ -301,7 +301,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
 
                 for (int index = oldLength; index <= setIndex; index++)
                 {
-                    _resourceUsages[index] = new();
+                    _resourceUsages[index] = [];
                 }
             }
 
@@ -350,24 +350,43 @@ namespace Ryujinx.Graphics.Gpu.Shader
         {
             int totalSets = _resourceDescriptors.Length;
 
-            var descriptors = new ResourceDescriptorCollection[totalSets];
-            var usages = new ResourceUsageCollection[totalSets];
+            ResourceDescriptorCollection[] descriptors = new ResourceDescriptorCollection[totalSets];
+            ResourceUsageCollection[] usages = new ResourceUsageCollection[totalSets];
+            bool hasShaderWrites = false;
 
             for (int index = 0; index < totalSets; index++)
             {
                 descriptors[index] = new ResourceDescriptorCollection(_resourceDescriptors[index].ToArray().AsReadOnly());
                 usages[index] = new ResourceUsageCollection(_resourceUsages[index].ToArray().AsReadOnly());
+
+                foreach (ResourceUsage usage in _resourceUsages[index])
+                {
+                    hasShaderWrites |= usage.Write;
+                }
             }
 
             ResourceLayout resourceLayout = new(descriptors.AsReadOnly(), usages.AsReadOnly());
+            bool enableAsyncCompile = GraphicsConfig.EnableAsyncShaderCompilation && pipeline.HasValue;
+            bool allowAsyncCompileSkip = enableAsyncCompile && !hasShaderWrites;
 
             if (pipeline.HasValue)
             {
-                return new ShaderInfo(_fragmentOutputMap, resourceLayout, pipeline.Value, fromCache);
+                return new ShaderInfo(
+                    _fragmentOutputMap,
+                    resourceLayout,
+                    pipeline.Value,
+                    fromCache,
+                    enableAsyncCompile,
+                    allowAsyncCompileSkip);
             }
             else
             {
-                return new ShaderInfo(_fragmentOutputMap, resourceLayout, fromCache);
+                return new ShaderInfo(
+                    _fragmentOutputMap,
+                    resourceLayout,
+                    fromCache,
+                    enableAsyncCompile,
+                    allowAsyncCompileSkip);
             }
         }
 

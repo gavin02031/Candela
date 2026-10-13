@@ -32,7 +32,7 @@ namespace Ryujinx.Input.HLE
                 if (_wasClicking && !isClicking)
                 {
                     MouseStateSnapshot snapshot = IMouse.GetMouseStateSnapshot(_mouse);
-                    var touchPosition = IMouse.GetScreenPosition(snapshot.Position, _mouse.ClientSize, aspectRatio);
+                    Vector2 touchPosition = IMouse.GetScreenPosition(snapshot.Position, _mouse.ClientSize, aspectRatio);
 
                     TouchPoint currentPoint = new()
                     {
@@ -61,7 +61,7 @@ namespace Ryujinx.Input.HLE
             if (aspectRatio > 0)
             {
                 MouseStateSnapshot snapshot = IMouse.GetMouseStateSnapshot(_mouse);
-                var touchPosition = IMouse.GetScreenPosition(snapshot.Position, _mouse.ClientSize, aspectRatio);
+                Vector2 touchPosition = IMouse.GetScreenPosition(snapshot.Position, _mouse.ClientSize, aspectRatio);
 
                 TouchAttribute attribute = TouchAttribute.None;
 
@@ -96,6 +96,7 @@ namespace Ryujinx.Input.HLE
 
             return false;
         }
+
 
         public bool UpdateMultiTouch(ITouchScreen touchScreen, bool isFocused)
         {
@@ -212,6 +213,7 @@ namespace Ryujinx.Input.HLE
 
             return touchPoints.Count > 0;
         }
+
 
         public void Dispose()
         {

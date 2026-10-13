@@ -1,4 +1,6 @@
+using Gommon;
 using Ryujinx.Common.Configuration;
+using Ryujinx.Common.Helper;
 using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.Shader;
@@ -11,6 +13,8 @@ using Silk.NET.Vulkan.Extensions.KHR;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
+using System.Threading;
 using Format = Ryujinx.Graphics.GAL.Format;
 using PrimitiveTopology = Ryujinx.Graphics.GAL.PrimitiveTopology;
 using SamplerCreateInfo = Ryujinx.Graphics.GAL.SamplerCreateInfo;
@@ -26,11 +30,15 @@ namespace Ryujinx.Graphics.Vulkan
         private WindowBase _window;
 
         private bool _initialized;
+        private readonly HashSet<TextureStorage> _presentationStorages = new();
+
+        public uint ProgramCount { get; set; } = 0;
 
         internal FormatCapabilities FormatCapabilities { get; private set; }
         internal HardwareCapabilities Capabilities;
 
         internal Vk Api { get; private set; }
+        internal Instance VkInstance => _instance.Instance;
         internal KhrSurface SurfaceApi { get; private set; }
         internal KhrSwapchain SwapchainApi { get; private set; }
         internal ExtConditionalRendering ConditionalRenderingApi { get; private set; }
@@ -43,13 +51,17 @@ namespace Ryujinx.Graphics.Vulkan
         internal uint QueueFamilyIndex { get; private set; }
         internal Queue Queue { get; private set; }
         internal Queue BackgroundQueue { get; private set; }
-        internal object BackgroundQueueLock { get; private set; }
-        internal object QueueLock { get; private set; }
+        internal Lock BackgroundQueueLock { get; private set; }
+        internal Lock QueueLock { get; private set; }
+        internal Lock PipelineCreationLock { get; private set; }
 
         internal MemoryAllocator MemoryAllocator { get; private set; }
         internal HostMemoryAllocator HostMemoryAllocator { get; private set; }
+        internal DonatedBufferAllocator DonatedBufferAllocator { get; private set; }
         internal CommandBufferPool CommandBufferPool { get; private set; }
         internal PipelineLayoutCache PipelineLayoutCache { get; private set; }
+        internal PipelineCacheManager PipelineCacheManager { get; private set; }
+        internal BackgroundCompilationScheduler BackgroundCompilationScheduler { get; private set; }
         internal BackgroundResources BackgroundResources { get; private set; }
         internal Action<Action> InterruptAction { get; private set; }
         internal SyncManager SyncManager { get; private set; }
@@ -68,24 +80,64 @@ namespace Ryujinx.Graphics.Vulkan
         internal HelperShader HelperShader { get; private set; }
         internal PipelineFull PipelineInternal => _pipeline;
 
+        internal void RegisterPresentationTexture(TextureView view)
+        {
+            if (view != null)
+            {
+                _presentationStorages.RemoveWhere(storage => storage.Disposed);
+                _presentationStorages.Add(view.Storage);
+            }
+        }
+
+        internal void UnregisterPresentationStorage(TextureStorage storage)
+        {
+            _presentationStorages.Remove(storage);
+        }
+
+        internal bool IsCriticalOffscreenTarget(FramebufferParams framebuffer)
+        {
+            if (framebuffer == null || framebuffer.AttachmentsCount == 0)
+            {
+                return false;
+            }
+
+            foreach (TextureStorage storage in _presentationStorages)
+            {
+                if (framebuffer.HasAttachment(storage))
+                {
+                    return false;
+                }
+            }
+
+            if (_presentationStorages.Count == 0)
+            {
+                return false;
+            }
+
+            return framebuffer.HasIncompleteAttachments();
+        }
+
         internal BarrierBatch Barriers { get; private set; }
 
         public IPipeline Pipeline => _pipeline;
 
         public IWindow Window => _window;
 
+
         private readonly Func<Instance, Vk, SurfaceKHR> _getSurface;
         private readonly Func<string[]> _getRequiredExtensions;
         private readonly string _preferredGpuId;
 
         private int[] _pdReservedBindings;
-        private readonly static int[] _pdReservedBindingsNvn = { 3, 18, 21, 36, 30 };
-        private readonly static int[] _pdReservedBindingsOgl = { 17, 18, 34, 35, 36 };
+        private readonly static int[] _pdReservedBindingsNvn = [3, 18, 21, 36, 30];
+        private readonly static int[] _pdReservedBindingsOgl = [17, 18, 34, 35, 36];
 
         internal Vendor Vendor { get; private set; }
         internal bool IsAmdWindows { get; private set; }
         internal bool IsIntelWindows { get; private set; }
+        internal bool IsIntelLinux { get; private set; }
         internal bool IsAmdGcn { get; private set; }
+        internal bool IsAmdRdna3 { get; private set; }
         internal bool IsNvidiaPreTuring { get; private set; }
         internal bool IsIntelArc { get; private set; }
         internal bool IsQualcommProprietary { get; private set; }
@@ -102,24 +154,28 @@ namespace Ryujinx.Graphics.Vulkan
 
         public event EventHandler<ScreenCaptureImageInfo> ScreenCaptured;
 
-        public VulkanRenderer(Vk api, Func<Instance, Vk, SurfaceKHR> surfaceFunc, Func<string[]> requiredExtensionsFunc, string preferredGpuId)
+        public VulkanRenderer(Vk api, Func<Instance, Vk, SurfaceKHR> getSurface, Func<string[]> requiredExtensionsFunc, string preferredGpuId)
         {
-            _getSurface = surfaceFunc;
+            _getSurface = getSurface;
             _getRequiredExtensions = requiredExtensionsFunc;
             _preferredGpuId = preferredGpuId;
             Api = api;
-            Shaders = new HashSet<ShaderCollection>();
-            Textures = new HashSet<ITexture>();
-            Samplers = new HashSet<SamplerHolder>();
+            Shaders = [];
+            Textures = [];
+            Samplers = [];
 
+            IsMoltenVk = OperatingSystem.IsMacOS() || OperatingSystem.IsIOS();
+
+            // Any device running on macOS (even Intel and AMD vendors) & iOS is using MoltenVK.
             if (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS())
-            {
                 MVKInitialization.Initialize();
-
-                // Any device running on MacOS is using MoltenVK, even Intel and AMD vendors.
-                IsMoltenVk = true;
-            }
         }
+
+        public static VulkanRenderer Create(
+            string preferredGpuId,
+            Func<Instance, Vk, SurfaceKHR> getSurface,
+            Func<string[]> getRequiredExtensions
+        ) => new(Vk.GetApi(), getSurface, getRequiredExtensions, preferredGpuId);
 
         private unsafe void LoadFeatures(uint maxQueueCount, uint queueFamilyIndex)
         {
@@ -157,9 +213,9 @@ namespace Ryujinx.Graphics.Vulkan
 
             if (maxQueueCount >= 2)
             {
-                Api.GetDeviceQueue(_device, queueFamilyIndex, 1, out var backgroundQueue);
+                Api.GetDeviceQueue(_device, queueFamilyIndex, 1, out Queue backgroundQueue);
                 BackgroundQueue = backgroundQueue;
-                BackgroundQueueLock = new object();
+                BackgroundQueueLock = new();
             }
 
             PhysicalDeviceProperties2 properties2 = new()
@@ -208,7 +264,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             bool supportsPushDescriptors = _physicalDevice.IsDeviceExtensionPresent(KhrPushDescriptor.ExtensionName);
 
-            PhysicalDevicePushDescriptorPropertiesKHR propertiesPushDescriptor = new PhysicalDevicePushDescriptorPropertiesKHR()
+            PhysicalDevicePushDescriptorPropertiesKHR propertiesPushDescriptor = new()
             {
                 SType = StructureType.PhysicalDevicePushDescriptorPropertiesKhr
             };
@@ -325,7 +381,7 @@ namespace Ryujinx.Graphics.Vulkan
             Api.GetPhysicalDeviceProperties2(_physicalDevice.PhysicalDevice, &properties2);
             Api.GetPhysicalDeviceFeatures2(_physicalDevice.PhysicalDevice, &features2);
 
-            var portabilityFlags = PortabilitySubsetFlags.None;
+            PortabilitySubsetFlags portabilityFlags = PortabilitySubsetFlags.None;
             uint vertexBufferAlignment = 1;
 
             if (usePortability)
@@ -342,37 +398,42 @@ namespace Ryujinx.Graphics.Vulkan
                                              featuresCustomBorderColor.CustomBorderColors &&
                                              featuresCustomBorderColor.CustomBorderColorWithoutFormat;
 
-            ref var properties = ref properties2.Properties;
+            ref PhysicalDeviceProperties properties = ref properties2.Properties;
 
-            var hasDriverProperties = _physicalDevice.TryGetPhysicalDeviceDriverPropertiesKHR(Api, out var driverProperties);
+            bool hasDriverProperties = _physicalDevice.TryGetPhysicalDeviceDriverPropertiesKHR(Api, out PhysicalDeviceDriverPropertiesKHR driverProperties);
 
             Vendor = VendorUtils.FromId(properties.VendorID);
 
             IsAmdWindows = Vendor == Vendor.Amd && OperatingSystem.IsWindows();
             IsIntelWindows = Vendor == Vendor.Intel && OperatingSystem.IsWindows();
+            IsIntelLinux = Vendor == Vendor.Intel && OperatingSystem.IsLinux();
             IsTBDR =
-                Vendor == Vendor.Apple ||
-                Vendor == Vendor.Qualcomm ||
-                Vendor == Vendor.ARM ||
-                Vendor == Vendor.Broadcom ||
-                Vendor == Vendor.ImgTec;
+                Vendor is Vendor.Apple or
+                Vendor.Qualcomm or
+                Vendor.ARM or
+                Vendor.Broadcom or
+                Vendor.ImgTec;
 
             GpuVendor = VendorUtils.GetNameFromId(properties.VendorID);
-            GpuDriver = hasDriverProperties && !OperatingSystem.IsMacOS() ?
+            GpuDriver = hasDriverProperties && !(OperatingSystem.IsMacOS() || OperatingSystem.IsIOS()) ?
                 VendorUtils.GetFriendlyDriverName(driverProperties.DriverID) : GpuVendor; // Fallback to vendor name if driver is unavailable or on MacOS where vendor is preferred.
 
             fixed (byte* deviceName = properties.DeviceName)
             {
-                GpuRenderer = Marshal.PtrToStringAnsi((IntPtr)deviceName);
+                GpuRenderer = Marshal.PtrToStringAnsi((nint)deviceName);
             }
 
             GpuVersion = $"Vulkan v{ParseStandardVulkanVersion(properties.ApiVersion)}, Driver v{ParseDriverVersion(ref properties)}";
 
-            IsAmdGcn = !IsMoltenVk && Vendor == Vendor.Amd && VendorUtils.AmdGcnRegex().IsMatch(GpuRenderer);
+            IsAmdGcn = !IsMoltenVk && Vendor == Vendor.Amd && Patterns.AmdGcn.IsMatch(GpuRenderer);
+
+            IsAmdRdna3 = Vendor == Vendor.Amd && (Patterns.AmdRdna3.IsMatch(GpuRenderer)
+                                                  // ROG Ally (X) Device IDs
+                                                  || properties.DeviceID is 0x15BF or 0x15C8);
 
             if (Vendor == Vendor.Nvidia)
             {
-                var match = VendorUtils.NvidiaConsumerClassRegex().Match(GpuRenderer);
+                Match match = Patterns.NvidiaConsumerClass.Match(GpuRenderer);
 
                 if (match != null && int.TryParse(match.Groups[2].Value, out int gpuNumber))
                 {
@@ -385,7 +446,7 @@ namespace Ryujinx.Graphics.Vulkan
             }
             else if (Vendor == Vendor.Intel)
             {
-                IsIntelArc = GpuRenderer.StartsWith("Intel(R) Arc(TM)");
+                IsIntelArc = GpuRenderer.StartsWithIgnoreCase("Intel(R) Arc(TM)");
             }
 
             IsQualcommProprietary = hasDriverProperties && driverProperties.DriverID == DriverId.QualcommProprietary;
@@ -402,10 +463,10 @@ namespace Ryujinx.Graphics.Vulkan
                 properties.Limits.FramebufferDepthSampleCounts &
                 properties.Limits.FramebufferStencilSampleCounts;
 
-            bool isDynamicStateSupported = OperatingSystem.IsIOSVersionAtLeast(17) && _physicalDevice.IsDeviceExtensionPresent(ExtExtendedDynamicState.ExtensionName);
+            bool supportsExtendedDynamicState = Environment.GetEnvironmentVariable("MVK_SUPPORTS_EXT_DYN_STATE") != "0" && _physicalDevice.IsDeviceExtensionPresent(ExtExtendedDynamicState.ExtensionName);
 
             Capabilities = new HardwareCapabilities(
-                _physicalDevice.IsDeviceExtensionPresent("VK_EXT_index_type_uint8"),
+                _physicalDevice.IsDeviceExtensionPresent("VK_EXT_index_type_uint8") && !IsMoltenVk,
                 supportsCustomBorderColor,
                 supportsBlendOperationAdvanced,
                 propertiesBlendOperationAdvanced.AdvancedBlendCorrelatedOverlap,
@@ -419,9 +480,9 @@ namespace Ryujinx.Graphics.Vulkan
                 _physicalDevice.IsDeviceExtensionPresent("VK_EXT_shader_stencil_export"),
                 features2.Features.ShaderStorageImageMultisample,
                 _physicalDevice.IsDeviceExtensionPresent(ExtConditionalRendering.ExtensionName),
-                isDynamicStateSupported,
-                features2.Features.MultiViewport, // && !IsMoltenVk, // Workaround for AMD on MoltenVK issue
-                featuresRobustness2.NullDescriptor && !IsMoltenVk,
+                supportsExtendedDynamicState,
+                features2.Features.MultiViewport && !(IsMoltenVk && Vendor == Vendor.Amd), // Workaround for AMD on MoltenVK issue
+                featuresRobustness2.NullDescriptor,
                 supportsPushDescriptors,
                 IsMoltenVk ? 8 : propertiesPushDescriptor.MaxPushDescriptors,
                 featuresPrimitiveTopologyListRestart.PrimitiveTopologyListRestart,
@@ -450,6 +511,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             Api.TryGetDeviceExtension(_instance.Instance, _device, out ExtExternalMemoryHost hostMemoryApi);
             HostMemoryAllocator = new HostMemoryAllocator(MemoryAllocator, Api, hostMemoryApi, _device);
+            DonatedBufferAllocator = new DonatedBufferAllocator(Api, _device, _physicalDevice, MemoryAllocator, hostMemoryApi);
 
             CommandBufferPool = new CommandBufferPool(Api, _device, Queue, QueueLock, queueFamilyIndex, IsQualcommProprietary);
 
@@ -483,7 +545,7 @@ namespace Ryujinx.Graphics.Vulkan
             _surface = _getSurface(_instance.Instance, Api);
             _physicalDevice = VulkanInitialization.FindSuitablePhysicalDevice(Api, _instance, _surface, _preferredGpuId);
 
-            var queueFamilyIndex = VulkanInitialization.FindSuitableQueueFamily(Api, _physicalDevice, _surface, out uint maxQueueCount);
+            uint queueFamilyIndex = VulkanInitialization.FindSuitableQueueFamily(Api, _physicalDevice, _surface, out uint maxQueueCount);
 
             _device = VulkanInitialization.CreateDevice(Api, _physicalDevice, queueFamilyIndex, maxQueueCount);
 
@@ -492,9 +554,17 @@ namespace Ryujinx.Graphics.Vulkan
                 SwapchainApi = swapchainApi;
             }
 
-            Api.GetDeviceQueue(_device, queueFamilyIndex, 0, out var queue);
+            Api.GetDeviceQueue(_device, queueFamilyIndex, 0, out Queue queue);
             Queue = queue;
-            QueueLock = new object();
+            QueueLock = new();
+            PipelineCreationLock = new();
+            PipelineCacheManager = new(
+                Api,
+                _physicalDevice,
+                _device,
+                BackgroundCompilationScheduler.PipelineCacheCount,
+                PipelineCreationLock);
+            BackgroundCompilationScheduler = new(PipelineCacheManager);
 
             LoadFeatures(maxQueueCount, queueFamilyIndex);
 
@@ -517,7 +587,7 @@ namespace Ryujinx.Graphics.Vulkan
                 }
                 else
                 {
-                    _pdReservedBindings = Array.Empty<int>();
+                    _pdReservedBindings = [];
                 }
             }
 
@@ -546,19 +616,46 @@ namespace Ryujinx.Graphics.Vulkan
 
         public IProgram CreateProgram(ShaderSource[] sources, ShaderInfo info)
         {
+            ProgramCount++;
+
             bool isCompute = sources.Length == 1 && sources[0].Stage == ShaderStage.Compute;
+            bool compileInBackground = info.EnableAsyncCompile;
+            bool highPriorityBackgroundCompilation = compileInBackground && !info.FromCache;
 
             if (info.State.HasValue || isCompute)
             {
-                return new ShaderCollection(this, _device, sources, info.ResourceLayout, info.State ?? default, info.FromCache);
+                return new ShaderCollection(
+                    this,
+                    _device,
+                    sources,
+                    info.ResourceLayout,
+                    info.State ?? default,
+                    info.FromCache,
+                    compileInBackground,
+                    info.AllowAsyncCompileSkip,
+                    highPriorityBackgroundCompilation);
             }
 
-            return new ShaderCollection(this, _device, sources, info.ResourceLayout);
+            return new ShaderCollection(
+                this,
+                _device,
+                sources,
+                info.ResourceLayout,
+                compileInBackground: compileInBackground,
+                allowAsyncCompileSkip: info.AllowAsyncCompileSkip,
+                highPriorityBackgroundCompilation: highPriorityBackgroundCompilation);
         }
 
         internal ShaderCollection CreateProgramWithMinimalLayout(ShaderSource[] sources, ResourceLayout resourceLayout, SpecDescription[] specDescription = null)
         {
-            return new ShaderCollection(this, _device, sources, resourceLayout, specDescription, isMinimal: true);
+            return new ShaderCollection(
+                this,
+                _device,
+                sources,
+                resourceLayout,
+                specDescription,
+                isMinimal: true,
+                compileInBackground: false);
         }
 
         public ISampler CreateSampler(SamplerCreateInfo info)
@@ -584,7 +681,7 @@ namespace Ryujinx.Graphics.Vulkan
         internal TextureView CreateTextureView(TextureCreateInfo info)
         {
             // This should be disposed when all views are destroyed.
-            var storage = CreateTextureStorage(info);
+            TextureStorage storage = CreateTextureStorage(info);
             return storage.CreateView(info, 0, 0);
         }
 
@@ -645,13 +742,16 @@ namespace Ryujinx.Graphics.Vulkan
                 Format.Bc7Srgb,
                 Format.Bc7Unorm);
 
-            if (!OperatingSystem.IsIOSVersionAtLeast(16, 4))
+
+            if (IsMoltenVk && !MoltenVkMetalInterop.SupportsBcTextureCompression(_physicalDevice.PhysicalDevice))
             {
-                // On iOS 16.3.1 and earlier, these formats are not supported.
                 supportsBc123CompressionFormat = false;
                 supportsBc45CompressionFormat = false;
                 supportsBc67CompressionFormat = false;
+
+                Logger.Info?.Print(LogClass.Gpu, "Metal device does not support BC texture compression; using software decoding.");
             }
+
 
             bool supportsEtc2CompressionFormat = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
                 Format.Etc2RgbaSrgb,
@@ -659,7 +759,11 @@ namespace Ryujinx.Graphics.Vulkan
                 Format.Etc2RgbPtaSrgb,
                 Format.Etc2RgbPtaUnorm,
                 Format.Etc2RgbSrgb,
-                Format.Etc2RgbUnorm);
+                Format.Etc2RgbUnorm,
+                Format.EacR11Unorm,
+                Format.EacR11Snorm,
+                Format.EacR11G11Unorm,
+                Format.EacR11G11Snorm);
 
             bool supports5BitComponentFormat = FormatCapabilities.OptimalFormatsSupport(compressedFormatFeatureFlags,
                 Format.R5G6B5Unorm,
@@ -715,12 +819,12 @@ namespace Ryujinx.Graphics.Vulkan
 
             Api.GetPhysicalDeviceFeatures2(_physicalDevice.PhysicalDevice, &features2);
 
-            var limits = _physicalDevice.PhysicalDeviceProperties.Limits;
-            var mainQueueProperties = _physicalDevice.QueueFamilyProperties[QueueFamilyIndex];
+            PhysicalDeviceLimits limits = _physicalDevice.PhysicalDeviceProperties.Limits;
+            QueueFamilyProperties mainQueueProperties = _physicalDevice.QueueFamilyProperties[QueueFamilyIndex];
 
             SystemMemoryType memoryType;
 
-            if (IsSharedMemory && !IsMoltenVk)
+            if (IsSharedMemory)
             {
                 memoryType = SystemMemoryType.UnifiedMemory;
             }
@@ -782,10 +886,10 @@ namespace Ryujinx.Graphics.Vulkan
                 imageSetIndex: PipelineBase.ImageSetIndex,
                 extraSetBaseIndex: PipelineBase.DescriptorSetLayouts,
                 maximumExtraSets: Math.Max(0, (int)limits.MaxBoundDescriptorSets - PipelineBase.DescriptorSetLayouts),
-                maximumUniformBuffersPerStage: (uint)Constants.MaxUniformBuffersPerStage,
-                maximumStorageBuffersPerStage: (uint)Constants.MaxStorageBuffersPerStage,
-                maximumTexturesPerStage: (uint)Constants.MaxTexturesPerStage,
-                maximumImagesPerStage: (uint)Constants.MaxImagesPerStage,
+                maximumUniformBuffersPerStage: Constants.MaxUniformBuffersPerStage,
+                maximumStorageBuffersPerStage: Constants.MaxStorageBuffersPerStage,
+                maximumTexturesPerStage: Constants.MaxTexturesPerStage,
+                maximumImagesPerStage: Constants.MaxImagesPerStage,
                 maximumComputeSharedMemorySize: (int)limits.MaxComputeSharedMemorySize,
                 maximumSupportedAnisotropy: (int)limits.MaxSamplerAnisotropy,
                 shaderSubgroupSize: (int)Capabilities.SubgroupSize,
@@ -803,7 +907,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             for (int i = 0; i < memoryProperties.MemoryHeapCount; i++)
             {
-                var heap = memoryProperties.MemoryHeaps[i];
+                MemoryHeap heap = memoryProperties.MemoryHeaps[i];
                 if ((heap.Flags & MemoryHeapFlags.DeviceLocalBit) == MemoryHeapFlags.DeviceLocalBit)
                 {
                     totalMemory += heap.Size;
@@ -833,7 +937,7 @@ namespace Ryujinx.Graphics.Vulkan
             {
                 Logger.Error?.PrintMsg(LogClass.Gpu, $"Error querying Vulkan devices: {ex.Message}");
 
-                return Array.Empty<DeviceInfo>();
+                return [];
             }
         }
 
@@ -846,7 +950,7 @@ namespace Ryujinx.Graphics.Vulkan
             catch (Exception)
             {
                 // If we got an exception here, Vulkan is most likely not supported.
-                return Array.Empty<DeviceInfo>();
+                return [];
             }
         }
 
@@ -893,7 +997,12 @@ namespace Ryujinx.Graphics.Vulkan
 
         private void PrintGpuInformation()
         {
-            Logger.Notice.Print(LogClass.Gpu, $"{GpuVendor} {GpuRenderer} ({GpuVersion})");
+            string gpuInfoMessage = $"{GpuRenderer} ({GpuVersion})";
+            if (!GpuRenderer.StartsWithIgnoreCase(GpuVendor))
+                gpuInfoMessage = gpuInfoMessage.Prepend(GpuVendor);
+
+            Logger.Notice.Print(LogClass.Gpu, gpuInfoMessage);
+
             Logger.Notice.Print(LogClass.Gpu, $"GPU Memory: {GetTotalGPUMemory() / (1024 * 1024)} MiB");
         }
 
@@ -1015,6 +1124,20 @@ namespace Ryujinx.Graphics.Vulkan
                 return;
             }
 
+            ShaderCollection[] shaders = new ShaderCollection[Shaders.Count];
+            Shaders.CopyTo(shaders);
+
+            foreach (ShaderCollection shader in shaders)
+            {
+                shader.WaitForBackgroundCompilation();
+            }
+
+            BackgroundCompilationScheduler.Dispose();
+
+            Api.DeviceWaitIdle(_device);
+
+            PipelineCacheManager.MergeAndSave();
+
             CommandBufferPool.Dispose();
             BackgroundResources.Dispose();
             _counters.Dispose();
@@ -1027,20 +1150,26 @@ namespace Ryujinx.Graphics.Vulkan
 
             MemoryAllocator.Dispose();
 
-            foreach (var shader in Shaders)
+            foreach (ShaderCollection shader in shaders)
             {
                 shader.Dispose();
             }
 
-            foreach (var texture in Textures)
+            PipelineCacheManager.Dispose();
+
+            _presentationStorages.Clear();
+
+            foreach (ITexture texture in Textures)
             {
                 texture.Release();
             }
 
-            foreach (var sampler in Samplers)
+            foreach (SamplerHolder sampler in Samplers)
             {
                 sampler.Dispose();
             }
+
+            DonatedBufferAllocator.Dispose();
 
             SurfaceApi.DestroySurface(_instance.Instance, _surface, null);
 

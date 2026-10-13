@@ -1,6 +1,6 @@
 namespace Ryujinx.HLE.HOS.Tamper.Operations
 {
-    class OpNot<T> : IOperation where T : unmanaged
+    class OpNot<T> : IOperation where T : unmanaged, System.Numerics.IBinaryInteger<T>
     {
         readonly IOperand _destination;
         readonly IOperand _source;
@@ -13,8 +13,7 @@ namespace Ryujinx.HLE.HOS.Tamper.Operations
 
         public void Execute()
         {
-            T result = TypeSafeOperations.BitwiseNot(_source.Get<T>());
-            _destination.Set(result);
+            _destination.Set(~_source.Get<T>());
         }
     }
 }

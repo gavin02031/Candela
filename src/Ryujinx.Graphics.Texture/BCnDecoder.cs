@@ -1,7 +1,6 @@
 using Ryujinx.Common;
 using Ryujinx.Common.Memory;
 using System;
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -616,6 +615,28 @@ namespace Ryujinx.Graphics.Texture
             output = (output ^ (output << 16)) & 0xffff0000ffffUL;
             output = (output ^ (output << 8)) & 0xff00ff00ff00ffUL;
             return output;
+        }
+
+        internal static void DecodeBC2Block(Span<byte> tile, ReadOnlySpan<byte> data)
+        {
+            BC23DecodeTileRgb(tile, data[8..]);
+            ulong alpha = BinaryPrimitives.ReadUInt64LittleEndian(data);
+
+            for (int i = 3; i < 64; i += 4, alpha >>= 4)
+            {
+                tile[i] = (byte)((alpha & 0xf) * 17);
+            }
+        }
+
+        internal static void DecodeBC3Block(Span<byte> tile, ReadOnlySpan<byte> data)
+        {
+            BC23DecodeTileRgb(tile, data[8..]);
+            ulong alpha = BinaryPrimitives.ReadUInt64LittleEndian(data);
+            Span<byte> palette = stackalloc byte[8];
+            palette[0] = (byte)alpha;
+            palette[1] = (byte)(alpha >> 8);
+            BCnLerpAlphaUnorm(palette);
+            BCnDecodeTileAlphaRgba(tile, palette, alpha >> 16);
         }
 
         private static void BCnLerpAlphaUnorm(Span<byte> alpha)

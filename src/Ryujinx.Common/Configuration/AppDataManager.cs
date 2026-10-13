@@ -49,34 +49,28 @@ namespace Ryujinx.Common.Configuration
 
         public static void Initialize(string baseDirPath)
         {
-            string appDataPath;
-            if (OperatingSystem.IsMacOS())
+            if (OperatingSystem.IsIOS()) 
             {
-                appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support");
+                BaseDirPath = Path.GetFullPath(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+                Mode = LaunchMode.UserProfile;
+
+                if (IsPathSymlink(BaseDirPath))
+                {
+                    Logger.Warning?.Print(LogClass.Application, "Application data directory is a symlink. This may be unintended.");
+                }
+
+                SetupBasePaths();
+                return;
             }
-            else if (OperatingSystem.IsIOS())
-            {
-                appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            }
-            else
-            {
-                appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            }
+
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
             if (appDataPath.Length == 0)
             {
                 appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             }
-            string userProfilePath;
-            if (OperatingSystem.IsIOS()) 
-            {
-                userProfilePath = appDataPath;
-            }
-            else 
-            {
-                userProfilePath = Path.Combine(appDataPath, DefaultBaseDir);
-            }
 
+            string userProfilePath = Path.Combine(appDataPath, DefaultBaseDir);
             string portablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DefaultPortableDir);
 
             // On macOS, check for a portable directory next to the app bundle as well.
@@ -118,7 +112,7 @@ namespace Ryujinx.Common.Configuration
 
             if (IsPathSymlink(BaseDirPath))
             {
-                Logger.Warning?.Print(LogClass.Application, $"Application data directory is a symlink. This may be unintended.");
+                Logger.Warning?.Print(LogClass.Application, "Application data directory is a symlink. This may be unintended.");
             }
 
             SetupBasePaths();
@@ -139,7 +133,7 @@ namespace Ryujinx.Common.Configuration
 
         private static string SetUpLogsDir()
         {
-            string logDir = "";
+            string logDir = string.Empty;
 
             if (Mode == LaunchMode.Portable)
             {
@@ -172,7 +166,7 @@ namespace Ryujinx.Common.Configuration
                         return null;
                     }
                 }
-                if (OperatingSystem.IsMacOS())
+                else if (OperatingSystem.IsMacOS())
                 {
                     // NOTE: Should evaluate to "~/Library/Logs/Ryujinx/".
                     logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Logs", DefaultBaseDir);
@@ -183,7 +177,7 @@ namespace Ryujinx.Common.Configuration
                     catch
                     {
                         Logger.Warning?.Print(LogClass.Application, $"Logging directory could not be created '{logDir}'");
-                        logDir = "";
+                        logDir = string.Empty;
                     }
 
                     if (string.IsNullOrEmpty(logDir))
@@ -214,7 +208,7 @@ namespace Ryujinx.Common.Configuration
                     catch
                     {
                         Logger.Warning?.Print(LogClass.Application, $"Logging directory could not be created '{logDir}'");
-                        logDir = "";
+                        logDir = string.Empty;
                     }
 
                     if (string.IsNullOrEmpty(logDir))
@@ -315,6 +309,7 @@ namespace Ryujinx.Common.Configuration
                     {
                         Logger.Error?.Print(LogClass.Application, $"Unable to resolve the symlink for Ryujinx application data: {symlinkException}. Follow the symlink at {correctApplicationDataDirectoryPath} and move your data back to the Application Support folder.");
                     }
+
                     return;
                 }
 
@@ -339,6 +334,7 @@ namespace Ryujinx.Common.Configuration
                     {
                         Logger.Error?.Print(LogClass.Application, $"Unable to resolve the symlink for Ryujinx application data: {symlinkException}. Follow the symlink at {correctApplicationDataDirectoryPath} and move your data back to the Application Support folder.");
                     }
+
                     return;
                 }
 

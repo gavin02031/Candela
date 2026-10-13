@@ -19,7 +19,7 @@ namespace Ryujinx.Graphics.Vulkan
             DescriptorSetLayout[] layouts = new DescriptorSetLayout[setDescriptors.Count];
             bool[] updateAfterBindFlags = new bool[setDescriptors.Count];
 
-            bool isMoltenVk = gd.IsMoltenVk;
+            bool isMoltenVk = gd.IsMoltenVk && !OperatingSystem.IsIOSVersionAtLeast(17); 
 
             for (int setIndex = 0; setIndex < setDescriptors.Count; setIndex++)
             {
@@ -44,7 +44,7 @@ namespace Ryujinx.Graphics.Vulkan
                     ResourceDescriptor descriptor = rdc.Descriptors[descIndex];
                     ResourceStages stages = descriptor.Stages;
 
-                    if (descriptor.Type == ResourceType.StorageBuffer && isMoltenVk && !OperatingSystem.IsIOSVersionAtLeast(17))
+                    if (descriptor.Type == ResourceType.StorageBuffer && isMoltenVk)
                     {
                         // There's a bug on MoltenVK where using the same buffer across different stages
                         // causes invalid resource errors, allow the binding on all active stages as workaround.
@@ -83,7 +83,7 @@ namespace Ryujinx.Graphics.Vulkan
                         updateAfterBindFlags[setIndex] = true;
                     }
 
-                    var descriptorSetLayoutCreateInfo = new DescriptorSetLayoutCreateInfo
+                    DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = new()
                     {
                         SType = StructureType.DescriptorSetLayoutCreateInfo,
                         PBindings = pLayoutBindings,
@@ -99,7 +99,7 @@ namespace Ryujinx.Graphics.Vulkan
 
             fixed (DescriptorSetLayout* pLayouts = layouts)
             {
-                var pipelineLayoutCreateInfo = new PipelineLayoutCreateInfo
+                PipelineLayoutCreateInfo pipelineLayoutCreateInfo = new()
                 {
                     SType = StructureType.PipelineLayoutCreateInfo,
                     PSetLayouts = pLayouts,
