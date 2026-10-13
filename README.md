@@ -57,7 +57,7 @@ Candela is distributed as an IPA that you sign and install yourself. Use a sidel
 
 ## Building
 
-This repository has a manual workflow, **Build unsigned iOS IPA** (`.github/workflows/ios-unsigned-ipa.yml`). Open the Actions tab, pick the workflow, choose the branch and run it. It publishes the C# core for `ios-arm64`, builds the app with Xcode without signing, and uploads an artifact named `MeloVertex-unsigned-ipa`. The artifact name still carries the old name for now. Download it and sign it with your sideloader. The workflow runs on GitHub's macOS runners and uses your free build minutes.
+This repository has a manual workflow, **Build unsigned iOS IPA** (`.github/workflows/ios-unsigned-ipa.yml`). Open the Actions tab, pick the workflow, choose the branch and run it. It publishes the C# core for `ios-arm64`, builds the app with Xcode without signing, and uploads an artifact named `Candela-unsigned-ipa`. Download it and sign it with your sideloader. The workflow runs on GitHub's macOS runners and uses your free build minutes.
 
 ## FAQ
 
