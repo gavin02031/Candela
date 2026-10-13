@@ -43,7 +43,7 @@ struct ContentView: View {
     var tabView: some View {
         if #available(iOS 19, *), nativeSettings.disableLiquidGlass.value, UIDevice.current.userInterfaceIdiom == .phone {
             Pre26TabView(selectedIndex: $selectedTab, items: [
-                Pre26TabItem(title: "Library", image: "gamecontroller.fill", view: { GamesListView() }),
+                Pre26TabItem(title: "Library", image: "gamecontroller.fill", view: { CandelaLibraryRootView() }),
                 
                 Pre26TabItem(title: "Settings", image: "gear", view: { SettingsViewNew() })
             ])
@@ -52,7 +52,7 @@ struct ContentView: View {
             .if(!gameHandler.showApp) { $0.hidden() }
         } else {
             TabView(selection: $selectedTab) {
-                GamesListView()
+                CandelaLibraryRootView()
                     .tabItem { Label("Library", systemImage: "gamecontroller.fill") }
                     .tag(Tab.games)
 
