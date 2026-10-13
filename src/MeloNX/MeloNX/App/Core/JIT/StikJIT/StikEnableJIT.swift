@@ -80,7 +80,7 @@ private func showStikDebugAttachWarning() {
 
     StikDebug can only Launch this app when `get-task-allow` is not present.
 
-    Rebuild MeloVertex with the Debug entitlements profile that includes `get-task-allow`, then reinstall.
+    Rebuild Candela with the Debug entitlements profile that includes `get-task-allow`, then reinstall.
     """
 
     let alert = UIAlertController(title: "StikDebug JIT Unavailable", message: message, preferredStyle: .alert)
