@@ -3,6 +3,9 @@ name: Build unsigned iOS IPA
 # Manual only. Run it from the Actions tab: "Build unsigned iOS IPA" > Run workflow.
 on:
   workflow_dispatch:
+  push:
+    branches: [perf/iphone15-first-batch]
+    paths: [".github/workflows/ios-unsigned-ipa.yml"]
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
