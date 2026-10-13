@@ -170,7 +170,7 @@ struct GamesListView: View {
             .onAppear() {
                 scrollTo = gameHandler.currentGame
             }
-            .navigationTitle("MeloVertex Library")
+            .navigationTitle("Candela Library")
             .toolbar {
                 toolbarHandler()
             }
@@ -201,7 +201,7 @@ struct GamesListView: View {
                 showDisclaimer = false
             }
         } message: {
-            Text("MeloVertex is NOT affiliated with MeloNX. If you run into any issues while running MeloVertex, do not use the name MeloNX while posting it online, but instead use MeloVertex name.\n\nIf you're having problems, first check the README.md in MeloVertex GitHub page. (github.com/vertexselection)")
+            Text("Candela is an unofficial fork of MeloVertex and MeloNX and is not affiliated with the MeloNX team. Please do not contact MeloNX support about Candela.\n\nIf you're having problems, first check the README.md on the Candela GitHub page. (github.com/gavin02031/VortexClub)")
         }
         .onAppear() {
             ryujinx.addGames()
