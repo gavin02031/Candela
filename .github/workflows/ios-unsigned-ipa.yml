@@ -88,12 +88,12 @@ jobs:
           cp "$APP/Assets.car" icon-Assets.car
           mkdir -p Payload
           cp -R "$APP" Payload/
-          zip -qry Candela-2.7-unsigned.ipa Payload
+          zip -qry Candela-1.0-unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: Candela-2.7-unsigned-ipa
+          name: Candela-1.0-unsigned-ipa
           path: |
-            Candela-2.7-unsigned.ipa
+            Candela-1.0-unsigned.ipa
             icon-assets.json
             icon-Assets.car
           if-no-files-found: error
