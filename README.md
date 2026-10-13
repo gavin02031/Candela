@@ -8,7 +8,7 @@
 
 ## About
 
-Candela is a Nintendo Switch emulator with a custom icon and app display name, a native SwiftUI home screen and per-game starting presets. The core and iOS platform use the pinned 2.7 source (13700519f3abc4e6d7ed8a065b118b2cc59bcd67).
+Candela is a emulator with a custom icon and app display name, a native SwiftUI home screen and per-game starting presets. The core and iOS platform use the pinned 2.7 source (13700519f3abc4e6d7ed8a065b118b2cc59bcd67).
 
 **Validation status:** the Release build passed and an unsigned IPA was packaged with the RAM donor extension. No performance benchmarks or physical-device tests have been completed. A source feature is not a promise that it works on every iPhone, game or sideloading setup. Check Actions for the current build result; an unsigned IPA still needs signing and on-device testing.
 
