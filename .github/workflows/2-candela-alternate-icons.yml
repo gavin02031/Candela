@@ -1,0 +1,120 @@
+name: Import Candela alternate icons and build
+on:
+  workflow_dispatch:
+  push:
+    branches: [perf/iphone15-first-batch]
+    paths: [".github/workflows/1-candela-alternate-icons.yml"]
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Add user alternate icons without replacing existing assets
+        run: |
+          set -euo pipefail
+          test -f 1-candela-alt-icons-f7a1fd2a.zip
+          unzip -q 1-candela-alt-icons-f7a1fd2a.zip -d /tmp/candela-alternates
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          import shutil,json
+          source=Path('/tmp/candela-alternates/Alternate.xcassets')
+          dest=Path('src/MeloNX/MeloNX/Assets/AppIcons/Alternate.xcassets')
+          assets=list(source.glob('*.appiconset'))
+          assert len(assets)==16
+          for asset in assets:
+              assert not (dest/asset.name).exists(), asset.name
+              data=json.loads((asset/'Contents.json').read_text())
+              assert len(data['images'])==1
+              shutil.copytree(asset,dest/asset.name)
+          p=Path('src/MeloNX/MeloNX/UI/Main/Settings/External/AppIconSwitcher.swift')
+          original=p.read_text()
+          assert 'creator: "Candela"' not in original
+          snippet=Path('/tmp/candela-alternates/IconSwitcher-snippet.swift').read_text()
+          snippet=snippet[snippet.index('            .init(icons: ['):].replace('creator: "Gavin"','creator: "Candela"')
+          anchor='appIconCreator = [\n'
+          assert original.count(anchor)==1
+          p.write_text(original.replace(anchor,anchor+snippet))
+          PYCODE
+          git add src/MeloNX/MeloNX/Assets/AppIcons/Alternate.xcassets/Candela*.appiconset src/MeloNX/MeloNX/UI/Main/Settings/External/AppIconSwitcher.swift
+          git -c user.name='gavin02031' -c user.email='gavin02031@users.noreply.github.com' commit -m 'Add sixteen user icons to the Candela icon picker group'
+          git push origin HEAD:perf/iphone15-first-batch
+      - name: Inventory Xcode and select SDK27 if installed
+        run: |
+          ls -d /Applications/Xcode*.app
+          XCODE27=$(find /Applications -maxdepth 1 -name 'Xcode_27*.app' | sort | tail -1)
+          if [ -n "$XCODE27" ]; then
+            sudo xcode-select -s "$XCODE27"
+            echo 'CANDELA_SWIFT_FLAGS=$(inherited) CANDELA_IOS27_AIRPLAY' >> "$GITHUB_ENV"
+          else
+            sudo xcode-select -s /Applications/Xcode_26.3.app
+            echo 'CANDELA_SWIFT_FLAGS=$(inherited)' >> "$GITHUB_ENV"
+            echo 'iOS27 AirPlay registration is not compiled in this interim build' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Rebuild verified LibHac alpha.129 source and run tests
+        run: |
+          set -euo pipefail
+          git clone https://starforgejo.dev/archive/LibHac_Ryubing.git /tmp/libhac
+          git -C /tmp/libhac checkout 23e402ebb6dedc517e34a98a033078dc0f6fd478
+          cd /tmp/libhac
+          dotnet run --project build/_build.csproj -- --target Codegen --configuration Release
+          dotnet pack src/LibHac/LibHac.csproj -c Release -p:PackageVersion=0.21.0-alpha.129 -o /tmp/libhac-feed
+          dotnet test tests/LibHac.Tests/LibHac.Tests.csproj -c Release --logger 'trx;LogFileName=libhac-tests.trx'
+          cd "$GITHUB_WORKSPACE"
+          python3 - <<'PYCODE'
+          import xml.etree.ElementTree as E
+          p='nuget.config'
+          t=E.parse(p)
+          for x in t.getroot().find('packageSources'):
+              if x.get('key')=='LibHacAlpha': x.set('value','/tmp/libhac-feed')
+          t.write(p,encoding='utf-8',xml_declaration=True)
+          PYCODE
+      - name: Publish .NET 10 native C# library
+        run: |
+          dotnet --info
+          xcodebuild -version
+          dotnet publish -c Release -r ios-arm64 -p:ExtraDefineConstants=DISABLE_UPDATER src/Ryujinx.Library --self-contained true
+          test -f src/Ryujinx.Library/bin/Release/net10.0/ios-arm64/native/Ryujinx.Library.dylib
+      - name: Build app and RAM donor extension without signing
+        run: |
+          xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ACTIVE_COMPILATION_CONDITIONS="$CANDELA_SWIFT_FLAGS" build
+      - name: Verify extension and package IPA
+        run: |
+          set -euo pipefail
+          APP=$(find build/Build/Products -maxdepth 2 -name 'MeloNX.app' -type d | head -n 1)
+          test -n "$APP"
+          test -d "$APP/PlugIns/MeloNXRamDonor.appex"
+          find "$APP" -iname "*AppIcon*" -o -name Assets.car
+          xcrun --sdk iphoneos assetutil --info "$APP/Assets.car" > icon-assets.json
+          cp "$APP/Assets.car" icon-Assets.car
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry Candela-2.7-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Candela-2.7-unsigned-ipa
+          path: |
+            Candela-2.7-unsigned.ipa
+            icon-assets.json
+            icon-Assets.car
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: LibHac-alpha129-verification
+          path: |
+            /tmp/libhac-feed/*.nupkg
+            /tmp/libhac/tests/LibHac.Tests/TestResults/*.trx
+          if-no-files-found: warn
