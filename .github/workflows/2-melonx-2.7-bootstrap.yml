@@ -33,7 +33,6 @@ jobs:
           cp /tmp/candela-overlay.patch.gz 1-candela-overlay.patch.gz
           git add -A
           git -c user.name='gavin02031' -c user.email='gavin02031@users.noreply.github.com' commit -m 'Sync pinned MeloNX 2.7 source and preserve Candela frontend, presets and identity'
-          git push origin HEAD:sync/melonx-2.7
       - name: Select Xcode 26.3
         run: sudo xcode-select -s /Applications/Xcode_26.3.app
       - uses: actions/setup-dotnet@v4
@@ -62,3 +61,8 @@ jobs:
           name: Candela-2.7-unsigned-ipa
           path: Candela-2.7-unsigned.ipa
           if-no-files-found: error
+      - name: Publish verified source to temporary sync branch
+        run: |
+          git config http.postBuffer 524288000
+          git config core.compression 1
+          git push origin HEAD:sync/melonx-2.7
