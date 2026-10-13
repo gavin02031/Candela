@@ -95,7 +95,7 @@ class LaunchGameHandler: ObservableObject {
         
         persettings.loadSettings()
         
-        var config = persettings.config[currentGame.titleId] ?? self.config
+        var config = persettings.config[currentGame.titleId] ?? PerformancePresets.config(for: currentGame, base: self.config) ?? self.config
         
         controllerManager.registerControllerTypeForMatchingControllers()
         config.gamepath = currentGame.fileURL.path
