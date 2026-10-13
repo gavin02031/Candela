@@ -177,7 +177,7 @@ class Ryujinx : ObservableObject {
                         let fileName = URL(fileURLWithPath: path).lastPathComponent
                         let message = "\(parsedLogs.exceptionType): \(parsedLogs.message)\n\nSaved log: \(fileName)"
                         
-                        presentAlert(title: "MeloNX Crashed!", message: message, imageName: "sad_mac") {
+                        presentAlert(title: "Candela Crashed!", message: message, imageName: "sad_mac") {
                             UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 exit(0)
@@ -191,7 +191,7 @@ class Ryujinx : ObservableObject {
                         let fileName = URL(fileURLWithPath: path).lastPathComponent
                         let message = "Unknown Error\n\nSaved log: \(fileName)"
                         
-                        presentAlert(title: "MeloNX Crashed!", message: message, imageName: "sad_mac") {
+                        presentAlert(title: "Candela Crashed!", message: message, imageName: "sad_mac") {
                             UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 exit(0)
