@@ -73,7 +73,7 @@ extension GamesListView {
                     UIApplication.shared.open(URL(string: sharedurl)!, options: [:])
                 }
             } label: {
-                Label("Show MeloVertex Folder", systemImage: "folder")
+                Label("Show Candela Folder", systemImage: "folder")
             }
             
             Divider()
