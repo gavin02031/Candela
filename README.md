@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/MeloNX/MeloNX/Assets/Assets.xcassets/AppIcon.appiconset/nxgradientpng.png" alt="Candela icon" width="120">
+  <img src="src/MeloNX/MeloNX/Assets/Assets.xcassets/AppIcon.appiconset/1-nxgradientpng.png" alt="Candela icon" width="120">
 </p>
 
 <h1 align="center">Candela</h1>
