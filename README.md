@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/MeloNX/MeloNX/Assets/Assets.xcassets/AppIcon.appiconset/1-nxgradientpng.png" alt="Candela icon" width="120">
+  <img src="src/MeloNX/MeloNX/Assets/AppIcons/AppIcon.icon/Assets/Candela.png" alt="Candela icon" width="120">
 </p>
 <h1 align="center">Candela</h1>
 <p align="center">A Nintendo Switch emulator for iPhone and iPad, with an iPhone 15-focused frontend and starting presets.</p>
@@ -8,9 +8,9 @@
 
 ## About
 
-Candela builds on MeloNX and Ryujinx, through the MeloVertex fork. It combines the Candela name, custom icon and app display name with a native SwiftUI home screen and per-game starting presets. The MeloNX 2.7 source integration is being validated on the temporary `sync/melonx-2.7` branch before landing on the working branch.
+Candela builds on MeloNX and Ryujinx, through the MeloVertex fork. It combines the Candela name, custom icon and app display name with a native SwiftUI home screen and per-game starting presets. The core and iOS platform are now based on the pinned MeloNX 2.7 source (13700519f3abc4e6d7ed8a065b118b2cc59bcd67).
 
-**Validation status:** no performance benchmarks or physical-device tests have been completed. A source feature is not a promise that it works on every iPhone, game or sideloading setup. Check Actions for the current build result; an unsigned IPA still needs signing and on-device testing.
+**Validation status:** the Release build passed and an unsigned IPA was packaged with the RAM donor extension. No performance benchmarks or physical-device tests have been completed. A source feature is not a promise that it works on every iPhone, game or sideloading setup. Check Actions for the current build result; an unsigned IPA still needs signing and on-device testing.
 
 ## Candela features
 
@@ -20,7 +20,7 @@ Candela builds on MeloNX and Ryujinx, through the MeloVertex fork. It combines t
 - **Shader cache and macro HLE defaults:** enabled for the Candela starting configuration. The presets are unmeasured starting points, not FPS claims.
 - **Candela identity:** custom icon and display name. The existing MeloVertex bundle identifier is retained, so installing Candela can replace that app. Back up saves and settings first.
 
-## MeloNX 2.7 features being integrated
+## MeloNX 2.7 features
 
 These implementations come from upstream MeloNX 2.7, not new Candela inventions:
 
@@ -28,7 +28,7 @@ These implementations come from upstream MeloNX 2.7, not new Candela inventions:
 - **MetalFX spatial upscaling**, plus an anti-aliasing setting.
 - **In-app controller remapping** and **library controller navigation**.
 - **Experimental Steam Controller support** over CoreBluetooth.
-- **iOS 27 AirPlay support** in upstream's presentation path.
+- **iOS 27 AirPlay source retained, unavailable in the current build:** the runner has Xcode 26.3 and SDK 26.2, so scene-accessory registration is compile-gated. The workflow enables `CANDELA_IOS27_AIRPLAY` when an Xcode 27 runner is available. This is not full iOS 27 AirPlay support today.
 - **Improved asynchronous shader compilation** and a fragment ClipDistance SPIR-V lookup fix.
 - **BCn-to-ETC2 texture recompression** for GPUs without BCn support.
 - **GPU buffer eviction under memory pressure**.
@@ -46,7 +46,11 @@ Add only keys, firmware and games dumped from your own Switch, or legal homebrew
 
 The repository's Actions workflows build an unsigned iOS IPA on macOS runners. The 2.7 integration uses .NET 10, the `Ryujinx.Library` native AOT project and Xcode 26.3. The app build includes the `MeloNXRamDonor.appex` extension and checks for it before packaging.
 
-The temporary sync workflow is **Sync MeloNX 2.7 and build Candela**. Its artifact, if the build succeeds, is `Candela-2.7-unsigned-ipa`. A failed run has no installable artifact. Download successful artifacts from Actions and sign them with your sideloader. Do not treat an Actions success as device or performance verification.
+Use **Build unsigned iOS IPA** from Actions on the working branch. Its artifact, if the build succeeds, is `Candela-2.7-unsigned-ipa`. The validated 2.7 build is [sync run #7](https://github.com/gavin02031/VortexClub/actions/runs/38466747430). A failed run has no installable artifact. Download successful artifacts from Actions and sign them with your sideloader. Do not treat an Actions success as device or performance verification.
+
+LibHac `0.21.0-alpha.129` is rebuilt from exact archived revision `23e402ebb6dedc517e34a98a033078dc0f6fd478`. The official MeloNX 2.7 dylib embeds that revision, tying the dependency to its original source. Validation: 1,616 tests passed, 0 failed, 11 skipped. The workflow repeats code generation, package build and tests rather than relying on the unavailable old feed.
+
+Swift 6.2.4 crashes optimizing the synthesized generic `Setting` destructor; a local `@_optimize(none) deinit {}` workaround keeps normal Release optimization everywhere else. See [Swift issue 87462](https://github.com/swiftlang/swift/issues/87462).
 
 ## Credits and licenses
 
