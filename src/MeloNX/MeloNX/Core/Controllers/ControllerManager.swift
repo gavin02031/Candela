@@ -15,7 +15,7 @@ class ControllerManager: ObservableObject {
     let virtualController = BaseController(nativeController: nil)
     @AppStorage("isVirtualController") var isVCA: Bool = true
     
-    private let controllerQueue = DispatchQueue(label: "com.stossy11.melonx.controllermanager", attributes: .concurrent)
+    private let controllerQueue = DispatchQueue(label: "app.candela.controllermanager", attributes: .concurrent)
     
     private var _privAllControllers: [BaseController] = []
     @Published var allControllers: [BaseController] = []
