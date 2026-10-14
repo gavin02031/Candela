@@ -11,138 +11,24 @@ import Foundation
 struct ThemeAccent: Equatable {
     let primary: Color
     let secondary: Color
-    
-    static let blue   = ThemeAccent(primary: Color(hex: "#3A7BFF"), secondary: Color(hex: "#6FA0FF"))
-    static let red    = ThemeAccent(primary: Color(hex: "#FF3B3B"), secondary: Color(hex: "#FF7070"))
-    static let purple = ThemeAccent(primary: Color(hex: "#9B5EFF"), secondary: Color(hex: "#BF92FF"))
-    static let orange = ThemeAccent(primary: Color(hex: "#FF8C00"), secondary: Color(hex: "#FFB347"))
-    static let teal   = ThemeAccent(primary: Color(hex: "#00C4B4"), secondary: Color(hex: "#50D9CC"))
-    static let green  = ThemeAccent(primary: Color(hex: "#2DBD6E"), secondary: Color(hex: "#5CDA95"))
-    static let pink   = ThemeAccent(primary: Color(hex: "#FF2D78"), secondary: Color(hex: "#FF6FA8"))
-    static let gold   = ThemeAccent(primary: Color(hex: "#D4A017"), secondary: Color(hex: "#F0C84A"))
 }
 
 enum BackgroundStyle: String, Codable, CaseIterable {
-    case systemDefault   = "Default"
-    case solidDark       = "Dark"
-    case solidLight      = "Light"
-    case oled            = "OLED Black"
-    case gradientAurora  = "Aurora"
-    case gradientForest  = "Forest"
-    case gradientSunset  = "Sunset"
-    case gradientOcean   = "Ocean"
-    case gradientGold    = "Gold"
-    case gradientCrimson = "Crimson"
-    case gradientQueer   = "Queer"
-    case lily            = "In Remembrance of Lily"
-    case chapter5        = "The Field of Pink and Gold"
+    case candelaBlush = "Blush"
+    case candelaDusk  = "Dusk"
+    case oled         = "OLED Black"
 
     var displayName: String { rawValue }
 
     @ViewBuilder
     func makeBackground() -> some View {
         switch self {
-        case .systemDefault:
-            Color(.systemGroupedBackground)
-
-        case .solidDark:
-            Color(hex: "#0F0F14")
-
-        case .solidLight:
-            Color(hex: "#F2F2F7")
-
+        case .candelaBlush:
+            CandelaBackdrop(dark: false)
+        case .candelaDusk:
+            CandelaBackdrop(dark: true)
         case .oled:
             Color.black
-
-        case .gradientAurora:
-            LinearGradient(
-                colors: [Color(hex: "#050D1A"), Color(hex: "#0A2A2A"), Color(hex: "#0D1A12")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-        case .gradientSunset:
-            LinearGradient(
-                colors: [Color(hex: "#1A080A"), Color(hex: "#2A1200"), Color(hex: "#1A0A0A")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-        case .gradientOcean:
-            LinearGradient(
-                colors: [Color(hex: "#050A1A"), Color(hex: "#0A1428"), Color(hex: "#050D1E")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-        case .gradientForest:
-            LinearGradient(
-                colors: [Color(hex: "#051A08"), Color(hex: "#0A2E10"), Color(hex: "#061A0A")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
-        case .gradientCrimson:
-            LinearGradient(
-                colors: [Color(hex: "#1C0605"), Color(hex: "#300B09"), Color(hex: "#210402")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-        case .gradientGold:
-            LinearGradient(
-                colors: [
-                    Color(hex: "#2A1A00"),
-                    Color(hex: "#3D2600"),
-                    Color(hex: "#1F1200")
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .chapter5:
-            LinearGradient(
-                colors: [
-                    Color(hex: "#76375c"),
-                    Color(hex: "#76375c"),
-                    Color(hex: "#85412a"),
-                    Color(hex: "#695d2f"),
-                    Color(hex: "#85412a"),
-                    Color(hex: "#76375c"),
-                    Color(hex: "#76375c")
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
-        case .gradientQueer:
-            LinearGradient(
-                stops: [
-                    .init(color: Color(hex: "#06050F"), location: 0.00),
-                    .init(color: Color(hex: "#0E0910"), location: 0.07),
-                    .init(color: Color(hex: "#110B0D"), location: 0.14),
-                    .init(color: Color(hex: "#160A0C"), location: 0.21),
-                    .init(color: Color(hex: "#1A0810"), location: 0.28),
-                    .init(color: Color(hex: "#1A0C0D"), location: 0.35),
-                    .init(color: Color(hex: "#1A100A"), location: 0.42),
-                    .init(color: Color(hex: "#181408"), location: 0.48),
-                    .init(color: Color(hex: "#161608"), location: 0.50),
-                    .init(color: Color(hex: "#161608"), location: 0.52),
-                    .init(color: Color(hex: "#0A160A"), location: 0.59),
-                    .init(color: Color(hex: "#06120E"), location: 0.66),
-                    .init(color: Color(hex: "#080F18"), location: 0.73),
-                    .init(color: Color(hex: "#090C1E"), location: 0.80),
-                    .init(color: Color(hex: "#0C091C"), location: 0.87),
-                    .init(color: Color(hex: "#110818"), location: 1.00),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .lily:
-            LinearGradient(
-                colors: [Color(hex: "#0D0A1F"), Color(hex: "#1A0E3D"), Color(hex: "#120D35")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
         }
     }
 }
@@ -150,32 +36,12 @@ enum BackgroundStyle: String, Codable, CaseIterable {
 extension BackgroundStyle {
     var ambientColor: UIColor {
         switch self {
-        case .systemDefault:
-            return .systemGray6
-        case .solidDark:
-            return UIColor(hex: "#0F0F14")
-        case .solidLight:
-            return UIColor(hex: "#F2F2F7")
+        case .candelaBlush:
+            return .average(hexes: ["#FCF2F6", "#EAF1FB"])
+        case .candelaDusk:
+            return .average(hexes: ["#1D1826", "#141A28"])
         case .oled:
             return .black
-        case .gradientAurora:
-            return .average(hexes: ["#050D1A", "#0A2A2A", "#0D1A12"])
-        case .gradientSunset:
-            return .average(hexes: ["#1A080A", "#2A1200", "#1A0A0A"])
-        case .gradientOcean:
-            return .average(hexes: ["#050A1A", "#0A1428", "#050D1E"])
-        case .gradientForest:
-            return .average(hexes: ["#051A08", "#0A2E10", "#061A0A"])
-        case .gradientCrimson:
-            return .average(hexes: ["#1C0605", "#300B09", "#210402"])
-        case .gradientGold:
-            return .average(hexes: ["#2A1A00", "#3D2600", "#1F1200"])
-        case .chapter5:
-            return .average(hexes: ["#76375c", "#85412a", "#695d2f"])
-        case .gradientQueer:
-            return .average(hexes: ["#161608", "#0A160A", "#080F18"])
-        case .lily:
-            return .average(hexes: ["#0D0A1F", "#1A0E3D", "#120D35"])
         }
     }
 }
@@ -245,125 +111,39 @@ struct AppTheme: Identifiable, Equatable, Codable {
 extension AppTheme {
 
     static let allBuiltIn: [AppTheme] = [
-        .defaultTheme,
-        .aurora,
-        .scarlet,
-        .sunset,
-        .ocean,
-        .oled,
-        .forest,
-        .rose,
-        .gold,
-        .chapter5,
-        .lily,
-        .queer
+        .candelaBlush,
+        .candelaDusk,
+        .oled
     ]
 
-    static let defaultTheme = AppTheme(
-        id: "default",
-        name: "Default",
-        accentColorHex: "#3A7BFF",
-        accentSecondaryHex: "#6FA0FF",
-        backgroundStyle: .systemDefault,
+    /// Light pink and powder blue. The default.
+    static let candelaBlush = AppTheme(
+        id: "candela-blush",
+        name: "Candela Blush",
+        accentColorHex: "#C9648C",
+        accentSecondaryHex: "#6F97D6",
+        backgroundStyle: .candelaBlush,
         isDark: false
     )
 
-    static let aurora = AppTheme(
-        id: "aurora",
-        name: "Aurora",
-        accentColorHex: "#00C4B4",
-        accentSecondaryHex: "#50D9CC",
-        backgroundStyle: .gradientAurora,
-        isDark: true
-    )
-
-    static let scarlet = AppTheme(
-        id: "scarlet",
-        name: "Scarlet",
-        accentColorHex: "#FF3B3B",
-        accentSecondaryHex: "#FF7070",
-        backgroundStyle: .gradientCrimson,
-        isDark: true
-    )
-
-    static let sunset = AppTheme(
-        id: "sunset",
-        name: "Sunset",
-        accentColorHex: "#FF8C00",
-        accentSecondaryHex: "#FFB347",
-        backgroundStyle: .gradientSunset,
-        isDark: true
-    )
-
-    static let ocean = AppTheme(
-        id: "ocean",
-        name: "Ocean",
-        accentColorHex: "#3A7BFF",
-        accentSecondaryHex: "#6FA0FF",
-        backgroundStyle: .gradientOcean,
+    /// The same pink and blue, on a dusk-violet base.
+    static let candelaDusk = AppTheme(
+        id: "candela-dusk",
+        name: "Candela Dusk",
+        accentColorHex: "#F2A9C4",
+        accentSecondaryHex: "#93B8F0",
+        backgroundStyle: .candelaDusk,
         isDark: true
     )
 
     static let oled = AppTheme(
         id: "oled",
         name: "OLED Black",
-        accentColorHex: "#FFFFFF",
-        accentSecondaryHex: "#AAAAAA",
+        accentColorHex: "#F2A9C4",
+        accentSecondaryHex: "#93B8F0",
         backgroundStyle: .oled,
         isDark: true
     )
 
-    static let forest = AppTheme(
-        id: "forest",
-        name: "Forest",
-        accentColorHex: "#2DBD6E",
-        accentSecondaryHex: "#5CDA95",
-        backgroundStyle: .gradientForest,
-        isDark: true
-    )
-
-    static let rose = AppTheme(
-        id: "rose",
-        name: "Rose",
-        accentColorHex: "#FF2D78",
-        accentSecondaryHex: "#FF6FA8",
-        backgroundStyle: .solidDark,
-        isDark: true
-    )
-
-    static let gold = AppTheme(
-        id: "gold",
-        name: "Gold",
-        accentColorHex: "#D4A017",
-        accentSecondaryHex: "#F0C84A",
-        backgroundStyle: .gradientGold,
-        isDark: true
-    )
-    
-    static let queer = AppTheme(
-        id: "queer",
-        name: "MeloPride",
-        accentColorHex: "#a6717b",
-        accentSecondaryHex: "#2D6C85",
-        backgroundStyle: .gradientQueer,
-        isDark: true
-    )
-
-    static let lily = AppTheme(
-        id: "lily",
-        name: "Always Remembered",
-        accentColorHex: "#9B5EFF",
-        accentSecondaryHex: "#BF92FF",
-        backgroundStyle: .lily,
-        isDark: true
-    )
-    
-    static let chapter5 = AppTheme(
-        id: "chapter5",
-        name: "Jarona!",
-        accentColorHex: "#f47272",
-        accentSecondaryHex: "#fde463",
-        backgroundStyle: .chapter5,
-        isDark: true
-    )
+    static let defaultTheme = candelaBlush
 }
