@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: StikJIT framework Info.plist
+# rebuild trigger: guest memory fallback, log share, pairing export
 on:
   workflow_dispatch:
   push:
