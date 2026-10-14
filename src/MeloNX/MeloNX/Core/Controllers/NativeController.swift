@@ -38,9 +38,9 @@ class NativeController: BaseController {
     private var comboHeld = Set<PhysicalInput>()
     private var comboWork: DispatchWorkItem?
 
-    /// Hold both stick buttons for 3 seconds to leave the game from a controller.
+    /// Hold Plus and Minus together for 3 seconds to leave the game from a controller.
     private func comboUpdate(_ input: PhysicalInput, _ down: Bool) {
-        guard input == .leftStickButton || input == .rightStickButton else { return }
+        guard input == .menu || input == .options else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if down { self.comboHeld.insert(input) } else { self.comboHeld.remove(input) }
