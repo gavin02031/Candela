@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export, pastel UI, new first-launch setup, theme fix
+# rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export, pastel UI, new first-launch setup, theme fix, pre-release
 on:
   workflow_dispatch:
   push:
@@ -117,6 +117,18 @@ jobs:
           - Build numbers and speed gains have not been measured.
           NOTES
           gh release create v1.0 Candela-1.0-unsigned.ipa --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Candela 1.0" --notes-file release-notes.md
+      - name: Publish pre-release v1.1-ui
+        if: ${{ github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          NOTES="Candela UI preview. New pastel look, first-launch setup (JIT, keys, firmware, optional games folder), built-in JIT with on-device pairing. Unsigned build: sign and install with your own tool and keep the app extensions. Compiled in CI only; speed has not been measured."
+          if gh release view v1.1-ui --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v1.1-ui Candela-1.0-unsigned.ipa --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create v1.1-ui Candela-1.0-unsigned.ipa --prerelease --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Candela 1.1 UI preview" --notes "$NOTES"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: Candela-1.0-unsigned-ipa
