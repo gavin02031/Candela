@@ -11,6 +11,7 @@ namespace Ryujinx.Memory
     {
         private readonly bool _usesSharedMemory;
         private readonly bool _isMirror;
+        private bool _usesDonatedMemory;
         private readonly bool _viewCompatible;
         private readonly bool _forJit;
         private DualMappedJitAllocator _dualMappedAllocator;
@@ -69,7 +70,17 @@ namespace Ryujinx.Memory
             else
             {
                 _forJit = flags.HasFlag(MemoryAllocationFlags.Jit);
-                _pointer = MemoryManagement.Allocate(size, _forJit);
+                try
+                {
+                    _pointer = MemoryManagement.Allocate(size, _forJit);
+                }
+                catch (SystemException) when (OperatingSystem.IsIOS() && !_forJit && DonatedMemory.TryAllocate(size, out nint donatedBlock))
+                {
+                    // Without the increased memory limit iOS refuses this mapping. The memory helpers already
+                    // gave this process a region of the same size, so use that instead.
+                    _pointer = donatedBlock;
+                    _usesDonatedMemory = true;
+                }
             }
 
             Size = size;
@@ -475,7 +486,14 @@ namespace Ryujinx.Memory
                 }
                 else
                 {
-                    MemoryManagement.Free(ptr, Size);
+                    if (_usesDonatedMemory)
+                    {
+                        DonatedMemory.Free(ptr);
+                    }
+                    else
+                    {
+                        MemoryManagement.Free(ptr, Size);
+                    }
                 }
             }
 
