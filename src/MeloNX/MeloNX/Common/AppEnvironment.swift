@@ -157,7 +157,7 @@ class AppEnvironment {
                       let data = try? JSONEncoder().encode(ryujinxController.games.map { GameScheme($0) }) else { return }
                 
                 let encoded = data.base64urlEncodedString()
-                let scheme = url.scheme ?? "melonx"
+                let scheme = url.scheme ?? "candela"
                 if let returnURL = URL(string: "\(urlscheme)://\(scheme)?games=\(encoded)") {
                     await UIApplication.shared.open(returnURL)
                     if !ryujinxController.isJITEnabled {
