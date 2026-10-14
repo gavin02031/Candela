@@ -129,6 +129,31 @@ jobs:
           else
             gh release create v1.1-ui Candela-1.0-unsigned.ipa --prerelease --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Candela 1.1 UI preview" --notes "$NOTES"
           fi
+      - name: Publish release v1.2
+        if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[release v1.2]') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > release-notes-1.2.md <<'NOTES'
+          Candela 1.2
+
+          What is new
+          - Pastel interface with a first-launch setup (built-in JIT, keys, firmware, games folder).
+          - Game page for each title: art, Play, favorite, last played, shader cache size, saved logs.
+          - Music player: mini player and full player using your own music library, mixed under game audio. Pauses when you leave the app.
+          - Per-game saved logs with a capped size, plus Share latest log in Settings > Advanced.
+          - Starting settings for a few demanding games (async shader compilation, lower resolution cap), a larger shader cache budget (512 MiB), and a thermal governor that steps resolution down at the next launch when the phone runs hot.
+          - Minimum iOS for this build is 17.4.
+
+          Known gaps
+          - The music player, thermal governor and new game page have had limited testing on devices. A black first frame in one game that clears after pause and resume is being investigated.
+          - Speed gains have not been measured. This is a CI-compiled build.
+
+          This is an unsigned build. Sign and install it with your own signing tool and keep the app extensions. Licensed AGPL-3.0-or-later.
+          NOTES
+          cp Candela-1.0-unsigned.ipa Candela-1.2-unsigned.ipa
+          gh release create v1.2 Candela-1.2-unsigned.ipa --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Candela 1.2" --notes-file release-notes-1.2.md
       - uses: actions/upload-artifact@v4
         with:
           name: Candela-1.0-unsigned-ipa
