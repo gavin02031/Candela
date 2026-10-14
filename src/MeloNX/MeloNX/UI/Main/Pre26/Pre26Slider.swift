@@ -38,7 +38,7 @@ struct Pre26Slider: View {
                 
                 // Filled Track
                 Capsule()
-                    .fill(Color.blue)
+                    .fill(Color.accentColor)
                     .frame(width: normalizedValue(width: width),
                            height: trackHeight)
                 
