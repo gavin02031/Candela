@@ -74,11 +74,30 @@ enum RamDonor {
         var granted: UInt64 = 0
         let minimum = min(requested, 256 * mib)
         
-        guard let mapped = mlx_ram_donor_acquire_up_to(requested, minimum, &granted),
-              granted > 0 else {
-            let reason = nativeError ?? "No donor memory available"
+        // A donor process can be killed by iOS right after it reports in. Start over with fresh donors a couple of times.
+        var mappedRegion: UnsafeMutableRawPointer?
+        var lastReason = "No donor memory available"
+        
+        for attempt in 1...3 {
+            granted = 0
+            mappedRegion = mlx_ram_donor_acquire_up_to(requested, minimum, &granted)
+            
+            if mappedRegion != nil, granted > 0 {
+                break
+            }
+            
+            mappedRegion = nil
+            lastReason = nativeError ?? "No donor memory available"
+            NSLog("Donor attempt \(attempt) of 3 failed: \(lastReason)")
             mlx_ram_donor_shutdown()
-            return fail("Could not source donor memory: \(reason)")
+            
+            if attempt < 3 {
+                Thread.sleep(forTimeInterval: 0.6)
+            }
+        }
+        
+        guard let mapped = mappedRegion else {
+            return fail("Could not source donor memory: \(lastReason)")
         }
         
         
