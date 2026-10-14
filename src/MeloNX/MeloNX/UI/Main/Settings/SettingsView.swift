@@ -149,6 +149,17 @@ struct SettingsView: View {
         }
         
         @ViewBuilder
+        func sectionsView(for parent: SettingsView) -> some View {
+            switch self {
+            case .graphics: parent.graphicsSections
+            case .input:    parent.inputSections
+            case .misc:     parent.miscSections
+            case .system:   parent.systemSections
+            case .advanced: parent.advancedSections
+            }
+        }
+
+        @ViewBuilder
         func formView(for parent: SettingsView) -> some View {
             switch self {
             case .graphics: parent.graphicsForm
@@ -487,7 +498,11 @@ struct SettingsView: View {
     // MARK: - Graphics Form
     
     var graphicsForm: some View {
-        Form {
+        Form { graphicsSections }
+    }
+
+    @ViewBuilder var graphicsSections: some View {
+        Group {
             // Resolution Scale
             Section {
                 if nativeSettingsManager.allowCustomResValue.value {
@@ -726,7 +741,11 @@ struct SettingsView: View {
     }
     
     var inputForm: some View {
-        Form {
+        Form { inputSections }
+    }
+
+    @ViewBuilder var inputSections: some View {
+        Group {
             Section {
                 if controllerManager.selectedControllers.isEmpty {
                     Text("No controllers selected, keyboard will be used")
@@ -809,7 +828,11 @@ struct SettingsView: View {
     // MARK: - System Form
     
     var systemForm: some View {
-        Form {
+        Form { systemSections }
+    }
+
+    @ViewBuilder var systemSections: some View {
+        Group {
             Section("Language & Region") {
                 Picker("System Language", selection: config.systemLanguage) {
                     ForEach(Array(SystemLanguage.allCases), id: \.self) { lang in
@@ -838,7 +861,11 @@ struct SettingsView: View {
     }
     
     var advancedForm: some View {
-        Form {
+        Form { advancedSections }
+    }
+
+    @ViewBuilder var advancedSections: some View {
+        Group {
             Section {
                 NativeToggleRow("Debug Logs", icon: "exclamationmark.bubble",
                                 isOn: config.loggingEnableDebug,
@@ -972,7 +999,11 @@ struct SettingsView: View {
     // MARK: - Misc Form
     
     var miscForm: some View {
-        Form {
+        Form { miscSections }
+    }
+
+    @ViewBuilder var miscSections: some View {
+        Group {
             // External (ex Custom, to clear up confusion) ROM Folders
             Section("External ROM Folders") {
                 FolderListView()
