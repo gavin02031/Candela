@@ -219,7 +219,7 @@ struct CandelaSectionTitle: View {
 
 /// Pill used for small facts, such as "3 games" or "Entitled".
 struct CandelaChip: View {
-    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorScheme) var scheme
     let text: String
     var tint: Color? = nil
 
@@ -241,4 +241,155 @@ extension Color {
     static let candelaGood = Color(candelaHex: 0x4FA886)
     static let candelaWarn = Color(candelaHex: 0xD39A4A)
     static let candelaBad = Color(candelaHex: 0xCF5F5A)
+}
+
+// MARK: - Step page (first-launch setup)
+
+/// One page of the first-launch setup: progress, a round icon, a title, a short
+/// explanation, optional content, and a pinned action bar.
+struct CandelaStepPage<Content: View>: View {
+    @Environment(\.colorScheme) var scheme
+
+    let step: Int
+    let total: Int
+    let symbol: String
+    let title: String
+    let message: String
+    let primaryTitle: String
+    let primaryEnabled: Bool
+    let primaryAction: () -> Void
+    let secondaryTitle: String?
+    let secondaryAction: (() -> Void)?
+    let content: () -> Content
+    @Environment(\.candelaStaticLayout) var staticLayout
+
+    init(
+        step: Int, of total: Int,
+        symbol: String, title: String, message: String,
+        primaryTitle: String, primaryEnabled: Bool = true, primaryAction: @escaping () -> Void,
+        secondaryTitle: String? = nil, secondaryAction: (() -> Void)? = nil,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.step = step
+        self.total = total
+        self.symbol = symbol
+        self.title = title
+        self.message = message
+        self.primaryTitle = primaryTitle
+        self.primaryEnabled = primaryEnabled
+        self.primaryAction = primaryAction
+        self.secondaryTitle = secondaryTitle
+        self.secondaryAction = secondaryAction
+        self.content = content
+    }
+
+    var body: some View {
+        let p = CandelaPalette(dark: scheme == .dark)
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    ForEach(1...max(total, 1), id: \.self) { i in
+                        Capsule(style: .continuous)
+                            .fill(i <= step ? AnyShapeStyle(p.accentGradient) : AnyShapeStyle(p.inkSoft.opacity(0.2)))
+                            .frame(height: 5)
+                    }
+                }
+                Text("Step \(step) of \(total)")
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .foregroundColor(p.inkSoft)
+            }
+            .padding(.horizontal, 28)
+            .padding(.top, 24)
+
+            scrolling {
+                VStack(spacing: 16) {
+                    ZStack {
+                        Circle().fill(p.roseSoft.opacity(scheme == .dark ? 0.16 : 0.5)).frame(width: 112, height: 112)
+                        Circle().stroke(p.accentGradient, lineWidth: 2).frame(width: 112, height: 112)
+                        Image(systemName: symbol)
+                            .font(.system(size: 44, weight: .regular))
+                            .foregroundStyle(p.accentGradient)
+                    }
+                    .padding(.top, 28)
+                    Text(title)
+                        .font(.system(.title, design: .rounded).weight(.bold))
+                        .foregroundColor(p.ink)
+                        .multilineTextAlignment(.center)
+                    Text(message)
+                        .font(.system(.body, design: .rounded))
+                        .foregroundColor(p.inkSoft)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    content()
+                        .padding(.top, 4)
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 24)
+            }
+
+            VStack(spacing: 10) {
+                Button(primaryTitle, action: primaryAction)
+                    .buttonStyle(CandelaPrimaryButtonStyle())
+                    .disabled(!primaryEnabled)
+                if let secondaryTitle, let secondaryAction {
+                    Button(secondaryTitle, action: secondaryAction)
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundColor(p.inkSoft)
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, 12)
+            .padding(.bottom, 28)
+            .frame(maxWidth: .infinity)
+            .background(p.backgroundBottom.opacity(0.85).ignoresSafeArea())
+        }
+    }
+}
+
+/// The preview renderer cannot draw scroll views, so it turns them off.
+private struct CandelaStaticLayoutKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var candelaStaticLayout: Bool {
+        get { self[CandelaStaticLayoutKey.self] }
+        set { self[CandelaStaticLayoutKey.self] = newValue }
+    }
+}
+
+extension CandelaStepPage {
+    @ViewBuilder
+    func scrolling<Inner: View>(@ViewBuilder _ inner: () -> Inner) -> some View {
+        if staticLayout {
+            VStack { inner(); Spacer(minLength: 0) }
+        } else {
+            ScrollView { inner() }
+        }
+    }
+}
+
+/// A labelled row for step content: icon, text, and a trailing status chip.
+struct CandelaStatusRow: View {
+    @Environment(\.colorScheme) var scheme
+    var symbol: String
+    var title: String
+    var detail: String? = nil
+    var chip: String? = nil
+    var chipTint: Color? = nil
+
+    var body: some View {
+        let p = CandelaPalette(dark: scheme == .dark)
+        HStack(spacing: 12) {
+            Image(systemName: symbol).foregroundColor(p.rose).frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(.body, design: .rounded)).foregroundColor(p.ink)
+                if let detail {
+                    Text(detail).font(.footnote).foregroundColor(p.inkSoft)
+                }
+            }
+            Spacer(minLength: 8)
+            if let chip { CandelaChip(text: chip, tint: chipTint) }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .candelaSurface(radius: 18)
+    }
 }
