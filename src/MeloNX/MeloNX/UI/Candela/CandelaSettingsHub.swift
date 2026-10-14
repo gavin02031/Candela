@@ -57,6 +57,7 @@ struct CandelaHubScreen: View {
     let destination: (SettingsView.SettingsCategory) -> AnyView  // returns the sections for a category
 
     @State private var tab: CandelaHubTab = .play
+    @AppStorage("candela.mvkPerf") private var mvkPerf = false
 
     var body: some View {
         let p = CandelaPalette(dark: scheme == .dark)
@@ -272,8 +273,7 @@ struct CandelaHubScreen: View {
         let p = CandelaPalette(dark: scheme == .dark)
         return VStack(spacing: 10) {
             CandelaRow(icon: "chart.xyaxis.line", title: "Timing report in logs", subtitle: "Adds graphics timing lines to the log. Restart the app to apply", tint: p.sky) {
-                Toggle("", isOn: Binding(get: { UserDefaults.standard.bool(forKey: "candela.mvkPerf") },
-                                         set: { UserDefaults.standard.set($0, forKey: "candela.mvkPerf") }))
+                Toggle("", isOn: $mvkPerf)
                     .labelsHidden().tint(p.rose)
             }
             Button { CandelaLogTools.share() } label: {
