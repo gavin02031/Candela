@@ -129,7 +129,7 @@ struct ContentView: View {
                         message: Text(LocalizedStringKey("The Extended Virtual Addressing entitlement is required for your device, Please read the Information on how to Install Candela and Enable the **PAID** Entitlement.")),
                         primaryButton: .default(Text("Information")) {
                             UIApplication.shared.open(
-                                URL(string: "https://git.ryujinx.app/projects/MeloNX#entitlements")!,
+                                URL(string: "https://github.com/gavin02031/Candela#entitlements")!,
                                 options: [:],
                                 completionHandler: nil
                             )
