@@ -3,6 +3,7 @@
 // the user has a subscription). It uses the system music player, so it needs no developer token.
 import SwiftUI
 import MediaPlayer
+import Combine
 
 @MainActor
 final class CandelaMusic: ObservableObject {
