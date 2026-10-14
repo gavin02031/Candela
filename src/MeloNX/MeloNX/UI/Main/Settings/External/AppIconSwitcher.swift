@@ -32,6 +32,7 @@ struct AppIconSwitcherView: View {
     ]
     @State private var currentIconName: String? = nil
     @State var refresh = 0
+    @State private var alertMessage: String?
     
     var body: some View {
         NavigationView {
@@ -140,6 +141,11 @@ struct AppIconSwitcherView: View {
         }
         .onAppear(perform: setupColumns)
         .onAppear(perform: getCurrentIconName)
+        .alert("Icon not changed", isPresented: Binding(get: { alertMessage != nil }, set: { if !$0 { alertMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(alertMessage ?? "")
+        }
     }
     
     private func setupColumns() {
@@ -198,7 +204,7 @@ struct AppIconSwitcherView: View {
             ], creator: "𝒰𝓃𝓀𝓃𝑜𝓌𝓃"),
             .init(icons: [
                 .init(iconDisplayName: "Mel-o-Lantern", iconName: "Mel-o-Lantern"),
-                .init(iconDisplayName: "Candelamas", iconName: "Candelamas"),
+                .init(iconDisplayName: "Candelamas", iconName: "MeloNXmas"),
                 .init(iconDisplayName: "MeluckyNX\n (Saint Patrick's Day)", iconName: "MeluckyNX")
             ], creator: "Transistor"),
             .init(icons: [
@@ -222,11 +228,16 @@ struct AppIconSwitcherView: View {
     private func selectIcon(_ iconName: String) {
         let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
         impactFeedback.impactOccurred()
+
+        guard UIApplication.shared.supportsAlternateIcons else {
+            alertMessage = "This install does not allow changing the app icon. It may be running inside a container or re-packed app."
+            return
+        }
         
         if iconName == UIImage.appIcon() {
             UIApplication.shared.setAlternateIconName(nil) { error in
                 if let error = error {
-                    print("Error setting icon: \(error)")
+                    Task { @MainActor in alertMessage = "iOS refused the icon change: \(error.localizedDescription)" }
                 } else {
                    Task { @MainActor in
                         currentIconName = nil
@@ -240,9 +251,15 @@ struct AppIconSwitcherView: View {
                 trimmedIconName = iconName.replacingOccurrences(of: "_18", with: "")
             }
             
+            let declared = ((Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any])?["CFBundleAlternateIcons"] as? [String: Any]) ?? [:]
+            guard declared[trimmedIconName] != nil else {
+                alertMessage = "The installed app does not list the icon \"\(trimmedIconName)\". A re-signed or re-packed install can drop alternate icons from the app's Info.plist."
+                return
+            }
+
             UIApplication.shared.setAlternateIconName(trimmedIconName) { error in
                 if let error = error {
-                    print("Error setting icon: \(error)")
+                    Task { @MainActor in alertMessage = "iOS refused the icon change: \(error.localizedDescription)" }
                 } else {
                    Task { @MainActor in
                         currentIconName = iconName
@@ -258,6 +275,37 @@ struct AppIconSwitcherView: View {
         return current.majorVersion >= version
     }
 
+}
+
+/// Small, cached previews for the picker. The icons are 1024 px app-icon sets, so each one is decoded
+/// one at a time off the main thread and shrunk to thumbnail size before it is kept.
+nonisolated final class IconPreviewCache: @unchecked Sendable {
+    static let shared = IconPreviewCache()
+    private let cache = NSCache<NSString, UIImage>()
+    private let queue = DispatchQueue(label: "candela.icon-previews", qos: .utility)
+
+    func image(for name: String) async -> UIImage? {
+        if let cached = cache.object(forKey: name as NSString) { return cached }
+        return await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                if let cached = cache.object(forKey: name as NSString) {
+                    continuation.resume(returning: cached)
+                    return
+                }
+                let thumb: UIImage? = autoreleasepool {
+                    guard let full = UIImage(named: name) ?? UIImage.loadFromAssetsCatalog(named: name) else { return nil }
+                    let format = UIGraphicsImageRendererFormat()
+                    format.scale = 1
+                    let side: CGFloat = 124
+                    return UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { _ in
+                        full.draw(in: CGRect(x: 0, y: 0, width: side, height: side))
+                    }
+                }
+                if let thumb { cache.setObject(thumb, forKey: name as NSString) }
+                continuation.resume(returning: thumb)
+            }
+        }
+    }
 }
 
 struct AppIconView: View {
@@ -293,8 +341,8 @@ struct AppIconView: View {
                 .frame(width: app.iconDisplayName.contains("\n") ? 150 : 100)
                 .lineLimit(app.iconDisplayName.contains("\n") ? 2 : 1)
         }
-        .onAppear() {
-            image = UIImage(named: app.iconName) ?? UIImage.loadFromAssetsCatalog(named: app.iconName)
+        .task(id: app.iconName) {
+            image = await IconPreviewCache.shared.image(for: app.iconName)
         }
     }
 }
@@ -315,7 +363,7 @@ extension UIImage {
 }
 
 extension UIImage {
-    static func loadFromAssetsCatalog(named name: String) -> UIImage? {
+    nonisolated static func loadFromAssetsCatalog(named name: String) -> UIImage? {
         guard let carURL = Bundle.main.url(forResource: "Assets", withExtension: "car") else {
             print("Could not find Assets.car")
             return nil
@@ -376,6 +424,7 @@ extension UIImage {
         }
         
         let scaleSel = NSSelectorFromString("scale")
+        guard namedImage.responds(to: scaleSel) else { return nil }
         typealias ScaleIMP = @convention(c) (NSObject, Selector) -> Double
         let scaleIMP = unsafeBitCast(namedImage.method(for: scaleSel), to: ScaleIMP.self)
         let imageScale = CGFloat(scaleIMP(namedImage, scaleSel))
