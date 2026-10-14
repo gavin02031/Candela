@@ -257,7 +257,7 @@ struct SettingsView: View {
                                 
                                 Button {
                                     if !memoryLimit {
-                                        UIApplication.shared.open(URL(string: "https://git.ryujinx.app/projects/MeloNX#entitlements")!)
+                                        UIApplication.shared.open(URL(string: "https://github.com/gavin02031/Candela#entitlements")!)
                                     }
                                 } label: {
                                     Text("Increased Memory Limit: \(memoryLimit ? "Enabled" : "Disabled")")
@@ -265,7 +265,7 @@ struct SettingsView: View {
                                 if needsExtendedVirtualAddressing || extendedVirtualAddressing {
                                     Button {
                                         if !extendedVirtualAddressing {
-                                            UIApplication.shared.open(URL(string: "https://git.ryujinx.app/projects/MeloNX#entitlements")!)
+                                            UIApplication.shared.open(URL(string: "https://github.com/gavin02031/Candela#entitlements")!)
                                         }
                                     } label: {
                                         Text("Extended Virtual Addressing: \(memoryLimit ? "Enabled" : "Disabled")")
@@ -457,7 +457,7 @@ struct SettingsView: View {
                 let memoryLimit = checkAppEntitlement("com.apple.developer.kernel.increased-memory-limit")
                 Button {
                     if !memoryLimit {
-                        UIApplication.shared.open(URL(string: "https://git.ryujinx.app/projects/MeloNX#entitlements")!)
+                        UIApplication.shared.open(URL(string: "https://github.com/gavin02031/Candela#entitlements")!)
                     }
                 } label: {
                     InfoCard(
