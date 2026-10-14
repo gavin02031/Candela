@@ -140,6 +140,8 @@ jobs:
 
           What is new
           - Pastel interface with a first-launch setup (built-in JIT, keys, firmware, games folder).
+          - Redesigned settings: pill tabs, one card per page, play styles (Cool, Balanced, Sharp), and a Back pill. Dotted backdrop across the app.
+          - In-game home button with a Leave game confirmation.
           - Game page for each title: art, Play, favorite, last played, shader cache size, saved logs.
           - Music player: mini player and full player using your own music library, mixed under game audio. Pauses when you leave the app.
           - Per-game saved logs with a capped size, plus Share latest log in Settings > Advanced.
