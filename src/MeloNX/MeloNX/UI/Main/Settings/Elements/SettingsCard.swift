@@ -1,14 +1,13 @@
 //
 //  SettingsCard.swift
-//  MeloNX
+//  Candela
 //
-//  Created by Stossy11 on 10/11/2025.
+//  Row container used across settings. Uses the Candela surface on phones.
 //
 
 import SwiftUI
 
 struct SettingsCard<Content: View>: View {
-    @Environment(\.colorScheme) var colorScheme
     let content: Content
 
     init(@ViewBuilder content: () -> Content) {
@@ -19,11 +18,7 @@ struct SettingsCard<Content: View>: View {
         if UIDevice.current.userInterfaceIdiom == .phone {
             content
                 .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(colorScheme == .dark ? Color(.systemGray6) : Color.white)
-                        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
-                )
+                .candelaSurface(radius: 18)
                 .padding(.horizontal)
         } else {
             VStack {
