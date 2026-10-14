@@ -192,7 +192,7 @@ struct CandelaHomeView: View {
                     }
                 }
                 Text(game.titleName)
-                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .font(.system(.footnote, design: .rounded).weight(.semibold)).minimumScaleFactor(0.85)
                     .foregroundColor(palette.ink)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
