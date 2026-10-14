@@ -18,5 +18,14 @@
 		<key>NSExtensionPrincipalClass</key>
 		<string>CandelaJITHelperHandler</string>
 	</dict>
+	<key>XPCService</key>
+	<dict>
+		<key>ServiceType</key>
+		<string>Application</string>
+		<key>_MultipleInstances</key>
+		<true/>
+		<key>_ProcessType</key>
+		<string>App</string>
+	</dict>
 </dict>
 </plist>
