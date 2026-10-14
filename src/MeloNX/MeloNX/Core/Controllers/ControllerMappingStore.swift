@@ -14,7 +14,7 @@ final class ControllerMappingStore: ObservableObject {
     
     @Published private(set) var mappings: [String: ControllerMapping] = [:]
     
-    private let queue = DispatchQueue(label: "com.stossy11.melonx.controllermappings")
+    private let queue = DispatchQueue(label: "app.candela.controllermappings")
     
     private init() {
         mappings = Self.load()
