@@ -1,31 +1,9 @@
-//
-//  CandelaLibraryRootView.swift
-//  Candela
-//
-//  Chooses between the classic library and the new Candela home. The new home is
-//  off by default, and it has a "Use classic library" button, so it can never
-//  trap the user.
-//
-
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// The Candela home is the library. The old list view is no longer reachable from the app.
 import SwiftUI
 
 struct CandelaLibraryRootView: View {
-    @AppStorage("candelaNewHome") private var useNewHome = true
-
     var body: some View {
-        if useNewHome {
-            CandelaHomeView().dynamicTypeSize(...DynamicTypeSize.xLarge)
-        } else {
-            GamesListView()
-        }
-    }
-}
-
-/// Settings row for the beta home screen.
-struct CandelaHomeToggleRow: View {
-    @AppStorage("candelaNewHome") private var useNewHome = true
-
-    var body: some View {
-        Toggle("New Candela Home (beta)", isOn: $useNewHome)
+        CandelaHomeView()
     }
 }
