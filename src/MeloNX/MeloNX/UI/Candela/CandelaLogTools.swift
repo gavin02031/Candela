@@ -27,7 +27,7 @@ enum CandelaLogTools {
     }
 
     @MainActor
-    static func share(_ url: URL) { present(url) }
+    static func share(_ url: URL) { present(exportTail(of: url) ?? url) }
 
     static func newestLogURL() -> URL? {
         let dir = URL.logsFolderURL
@@ -56,8 +56,46 @@ enum CandelaLogTools {
 
     @MainActor
     static func share() {
-        guard let url = newestLogURL() else { return }
-        present(url)
+        guard let url = newestLogURL(), let tail = exportTail(of: url) else { return }
+        present(tail)
+    }
+
+    /// Largest piece of a log that is ever shared. The end of a session is what matters for tuning.
+    static let shareLimit = 8 * 1024 * 1024
+
+    /// Copies the last few MB of a log (including the rotated earlier segment) into a small temporary file.
+    static func exportTail(of url: URL) -> URL? {
+        var parts: [URL] = []
+        let earlier = URL(fileURLWithPath: url.path + ".1")
+        if FileManager.default.fileExists(atPath: earlier.path) { parts.append(earlier) }
+        parts.append(url)
+        var chunks: [Data] = []
+        var remaining = shareLimit
+        for part in parts.reversed() {
+            guard remaining > 0, let handle = try? FileHandle(forReadingFrom: part) else { continue }
+            defer { try? handle.close() }
+            let size = Int((try? handle.seekToEnd()) ?? 0)
+            let take = min(size, remaining)
+            try? handle.seek(toOffset: UInt64(size - take))
+            chunks.insert((try? handle.read(upToCount: take)) ?? Data(), at: 0)
+            remaining -= take
+        }
+        let out = FileManager.default.temporaryDirectory.appendingPathComponent(url.deletingPathExtension().lastPathComponent + "-tail.log")
+        try? FileManager.default.removeItem(at: out)
+        guard (try? chunks.reduce(into: Data()) { $0.append($1) }.write(to: out, options: .atomic)) != nil else { return nil }
+        return out
+    }
+
+    /// Deletes every saved log. Returns how many bytes were freed.
+    @discardableResult
+    static func deleteAllLogs() -> Int64 {
+        let files = (try? FileManager.default.contentsOfDirectory(at: URL.logsFolderURL, includingPropertiesForKeys: [.fileSizeKey])) ?? []
+        var freed: Int64 = 0
+        for f in files {
+            freed += Int64((try? f.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            try? FileManager.default.removeItem(at: f)
+        }
+        return freed
     }
 
     @MainActor
