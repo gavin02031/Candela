@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: memory entitlement toggle
+# rebuild trigger: helper embed and diagnostics
 on:
   workflow_dispatch:
   push:
@@ -84,7 +84,7 @@ jobs:
           test -n "$APP"
           test -d "$APP/PlugIns/MeloNXRamDonor.appex"
           test -d "$APP/PlugIns/CandelaJITHelper.appex"
-          test -d "$APP/PlugIns/CandelaJITHelper.appex/Frameworks/StikJIT.framework"
+          test -d "$APP/Frameworks/StikJIT.framework"
           find "$APP" -iname "*AppIcon*" -o -name Assets.car
           xcrun --sdk iphoneos assetutil --info "$APP/Assets.car" > icon-assets.json
           cp "$APP/Assets.car" icon-Assets.car
