@@ -70,7 +70,7 @@ class BaseController: Equatable, Identifiable {
         }
         
         let identifier = UUID().uuidString
-        let queueLabel = self.virtual ? "com.stossy11.MeloNX.controller.virtual" : "com.stossy11.MeloNX.controller.\(identifier)"
+        let queueLabel = self.virtual ? "app.candela.controller.virtual" : "app.candela.controller.\(identifier)"
         
         self.inputQueue = DispatchQueue(label: queueLabel, qos: .userInteractive)
         self.motionQueue = DispatchQueue(label: queueLabel + ".motion", qos: .userInitiated)
