@@ -157,8 +157,12 @@ struct ContentView: View {
                     .alert(isPresented: .constant(ryujinxController.isRunning.hasCrashed())) {
                         Alert(
                             title: Text("Candela Crashed!"),
-                            message: Text(LocalizedStringKey("Candela crashed with result: \(crashed)")),
-                            dismissButton: .cancel(Text("Cancel")) {
+                            message: Text(verbatim: "Candela crashed with result: \(crashed)" + CandelaLogTools.crashDetail()),
+                            primaryButton: .default(Text("Share log")) {
+                                CandelaLogTools.share()
+                                ryujinxController.isRunning = .stopped
+                            },
+                            secondaryButton: .cancel(Text("Close")) {
                                 ryujinxController.isRunning = .stopped
                             }
                         )
