@@ -5,6 +5,30 @@ import Foundation
 import UIKit
 
 enum CandelaLogTools {
+    static let stampFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyyMMdd-HHmmss"
+        return f
+    }()
+
+    /// Per-game log files are named Candela-Log-<TITLEID>-<timestamp>.log, so each session knows which game it came from.
+    static func prefix(for titleId: String) -> String { "Candela-Log-\(titleId.uppercased())-" }
+
+    /// Saved sessions for one game, newest first.
+    static func logs(for titleId: String) -> [URL] {
+        let pre = prefix(for: titleId)
+        let files = (try? FileManager.default.contentsOfDirectory(at: URL.logsFolderURL, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        return files.filter { $0.lastPathComponent.hasPrefix(pre) && $0.pathExtension == "log" }.sorted {
+            let a = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let b = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return a > b
+        }
+    }
+
+    @MainActor
+    static func share(_ url: URL) { present(url) }
+
     static func newestLogURL() -> URL? {
         let dir = URL.logsFolderURL
         let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
