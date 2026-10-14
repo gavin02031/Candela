@@ -14,7 +14,7 @@ struct CandelaLibraryRootView: View {
 
     var body: some View {
         if useNewHome {
-            CandelaHomeView()
+            CandelaHomeView().dynamicTypeSize(...DynamicTypeSize.xLarge)
         } else {
             GamesListView()
         }
