@@ -14,7 +14,7 @@ struct CandelaGameGateView: View {
     private var palette: CandelaPalette { CandelaPalette(dark: colorScheme == .dark) }
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             ScrollView {
                 VStack(spacing: 18) {
                     CandelaArtView(game: game)
@@ -62,8 +62,7 @@ struct CandelaGameGateView: View {
                     List {
                         CandelaGameLogsSection(titleId: game.titleId)
                     }
-                    .scrollDisabled(true)
-                    .scrollContentBackground(.hidden)
+                    .modifier(HiddenScrollBackground())
                     .frame(height: 260)
                 }
                 .padding(.bottom, 24)
