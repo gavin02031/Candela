@@ -23,7 +23,7 @@ enum CandelaHubTab: Hashable {
 private enum CandelaPlayStyle: String, CaseIterable, Identifiable {
     case cool = "Cool"
     case balanced = "Balanced"
-    case sharp = "Sharp"
+    case sharp = "Bright"
 
     var id: String { rawValue }
     var scale: Float {
@@ -42,9 +42,9 @@ private enum CandelaPlayStyle: String, CaseIterable, Identifiable {
     }
     var blurb: String {
         switch self {
-        case .cool: return "Cooler, softer"
-        case .balanced: return "Best mix"
-        case .sharp: return "Cleanest, warmest"
+        case .cool: return "Less heat, softer picture"
+        case .balanced: return "A bit of both"
+        case .sharp: return "Sharpest picture, runs warmer"
         }
     }
 }
@@ -248,6 +248,11 @@ struct CandelaHubScreen: View {
                     .buttonStyle(.plain)
                 }
             }
+            Text("Applies to games with no saved settings of their own. Set one game on its game page.")
+                .font(.caption)
+                .foregroundColor(p.inkSoft)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
             CandelaRow(icon: "thermometer.medium", title: "Thermal governor", subtitle: "Lowers resolution at next launch when the phone runs hot (\(thermal.step) of 2 steps)", tint: p.rose) {
                 Toggle("", isOn: Binding(get: { thermal.enabled }, set: { thermal.enabled = $0 }))
                     .labelsHidden().tint(p.rose)
