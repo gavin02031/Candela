@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: icon picker fix
+# rebuild trigger: helper plist fix
 on:
   workflow_dispatch:
   push:
