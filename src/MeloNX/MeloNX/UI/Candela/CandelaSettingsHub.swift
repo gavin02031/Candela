@@ -9,7 +9,7 @@ extension SettingsView {
             CandelaHubScreen(
                 config: config,
                 isJIT: ryujinxController.isJITEnabled,
-                destination: { AnyView($0.formView(for: self)) }
+                destination: { AnyView($0.sectionsView(for: self)) }
             )
             .navigationBarHidden(true)
         }
@@ -54,7 +54,7 @@ struct CandelaHubScreen: View {
     @ObservedObject private var thermal = CandelaThermal.shared
     let config: Binding<Options>
     let isJIT: Bool
-    let destination: (SettingsView.SettingsCategory) -> AnyView
+    let destination: (SettingsView.SettingsCategory) -> AnyView  // returns the sections for a category
 
     @State private var tab: CandelaHubTab = .play
 
@@ -75,18 +75,66 @@ struct CandelaHubScreen: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
-                ScrollView {
-                    VStack(spacing: 14) {
-                        contentCard
-                        Text("Candela \(CandelaVersion.display)  -  AGPL-3.0-or-later")
+                contentList
+            }
+        }
+    }
+
+    private var contentList: some View {
+        let p = CandelaPalette(dark: scheme == .dark)
+        let info = header(for: tab)
+        return List {
+            Section {
+                HStack(spacing: 12) {
+                    Image(systemName: info.icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 46, height: 46)
+                        .background(p.accentGradient, in: Circle())
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(info.title)
+                            .font(.system(.title2, design: .rounded).weight(.heavy))
+                            .foregroundColor(p.ink)
+                        Text(info.subtitle)
                             .font(.footnote)
                             .foregroundColor(p.inkSoft)
-                            .padding(.bottom, 100)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 2)
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
+            }
+            if tab == .play || tab == .system || tab == .more {
+                Section {
+                    rows
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                        .listRowSeparator(.hidden)
                 }
             }
+            sections
+            Section {
+                Text("Candela \(CandelaVersion.display)  -  AGPL-3.0-or-later")
+                    .font(.footnote)
+                    .foregroundColor(p.inkSoft)
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+                    .padding(.bottom, 90)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .fontDesign(.rounded)
+        .tint(p.rose)
+        .id(tab)
+    }
+
+    @ViewBuilder private var sections: some View {
+        switch tab {
+        case .play: destination(.graphics)
+        case .controls: destination(.input)
+        case .system: destination(.system)
+        case .library: destination(.misc)
+        case .more: destination(.advanced)
         }
     }
 
@@ -159,12 +207,9 @@ struct CandelaHubScreen: View {
     @ViewBuilder private var rows: some View {
         switch tab {
         case .play: playRows
-        case .controls:
-            linkRow(.input, icon: "gamecontroller.fill", title: "Controllers and layout", subtitle: "Pick controllers, edit the on-screen layout, scale and opacity")
         case .system: systemRows
-        case .library:
-            linkRow(.misc, icon: "square.grid.2x2.fill", title: "Library and look", subtitle: "Theme, app icon, library view and sort, folders, network")
         case .more: moreRows
+        default: EmptyView()
         }
     }
 
@@ -199,23 +244,10 @@ struct CandelaHubScreen: View {
                     .buttonStyle(.plain)
                 }
             }
-            CandelaRow(icon: "aspectratio", title: "Resolution", subtitle: "\(current.toOneDecimalString())x of 720p", tint: p.rose) {
-                Slider(value: Binding(get: { Double(config.wrappedValue.resScale) },
-                                      set: { config.wrappedValue.resScale = Float(($0 * 20).rounded() / 20) }),
-                       in: 0.5...1.5)
-                    .frame(width: 120)
-                    .tint(p.rose)
-            }
-            CandelaRow(icon: "bolt.fill", title: "Background shader building", subtitle: "Fewer stutters, effects can pop in briefly", tint: p.sky) {
-                Toggle("", isOn: Binding(get: { config.wrappedValue.enableAsyncShaderCompilation },
-                                         set: { config.wrappedValue.enableAsyncShaderCompilation = $0 }))
-                    .labelsHidden().tint(p.rose)
-            }
             CandelaRow(icon: "thermometer.medium", title: "Thermal governor", subtitle: "Lowers resolution at next launch when the phone runs hot (\(thermal.step) of 2 steps)", tint: p.rose) {
                 Toggle("", isOn: Binding(get: { thermal.enabled }, set: { thermal.enabled = $0 }))
                     .labelsHidden().tint(p.rose)
             }
-            linkRow(.graphics, icon: "paintbrush.fill", title: "All picture options", subtitle: "Filtering, upscaling, frame pacing, aspect ratio")
         }
     }
 
@@ -231,12 +263,6 @@ struct CandelaHubScreen: View {
                     .frame(width: 120)
                     .tint(p.sky)
             }
-            CandelaRow(icon: "globe", title: "Internet access", subtitle: "Lets games use the network", tint: p.rose) {
-                Toggle("", isOn: Binding(get: { config.wrappedValue.enableInternetAccess },
-                                         set: { config.wrappedValue.enableInternetAccess = $0 }))
-                    .labelsHidden().tint(p.rose)
-            }
-            linkRow(.system, icon: "gearshape.fill", title: "All system options", subtitle: "Language, region, time zone, memory mode")
         }
     }
 
@@ -251,7 +277,6 @@ struct CandelaHubScreen: View {
             Button { CandelaLogTools.deleteAllLogs() } label: {
                 CandelaRow(icon: "trash", title: "Delete saved logs", subtitle: "Frees space used by per-game logs", tint: p.rose) { EmptyView() }
             }.buttonStyle(.plain)
-            linkRow(.advanced, icon: "terminal.fill", title: "All advanced options", subtitle: "Log levels, memory, developer options")
         }
     }
 
