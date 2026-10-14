@@ -49,13 +49,13 @@ struct CandelaArtView: View {
                     .aspectRatio(contentMode: .fill)
             } else {
                 LinearGradient(
-                    colors: [Color.indigo.opacity(0.7), Color.purple.opacity(0.5)],
+                    colors: [Color(candelaHex: 0xF4C6D7), Color(candelaHex: 0xC6D8F3)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 Text(String(game.titleName.prefix(1)).uppercased())
                     .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundColor(Color(candelaHex: 0x3A3450).opacity(0.7))
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
