@@ -194,6 +194,10 @@ public final class RyujinxController: ObservableObject {
         checkAppEntitlement("com.apple.developer.kernel.increased-memory-limit")
     }
     
+    var allowLaunchWithoutEntitlement: Bool {
+        NativeSettingsManager.shared.setting(forKey: "launchWithoutMemoryEntitlement", default: false).value && RamDonor.isSupported
+    }
+    
     var hasExtendedVirtualAddressingEntitlement: Bool {
         checkAppEntitlement("com.apple.developer.kernel.extended-virtual-addressing")
     }
@@ -205,13 +209,13 @@ public final class RyujinxController: ObservableObject {
         
         loadConfig()
         
-        if !hasIncreasedMemoryLimitEntitlement {
+        if !hasIncreasedMemoryLimitEntitlement && !allowLaunchWithoutEntitlement {
             isRunning = .started(game: game, state: .entitlement)
             lastGameLaunched = nil
             return
         }
         
-        if !hasExtendedVirtualAddressingEntitlement && AppEnvironment.shared.requiresExtendedVirtualAddressing() {
+        if !hasExtendedVirtualAddressingEntitlement && !allowLaunchWithoutEntitlement && AppEnvironment.shared.requiresExtendedVirtualAddressing() {
             isRunning = .started(game: game, state: .extendedEntitlement)
             lastGameLaunched = nil
             return
