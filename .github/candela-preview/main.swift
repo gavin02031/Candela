@@ -31,7 +31,7 @@ struct HomeMock: View {
         let p = CandelaPalette(dark: dark)
         ZStack {
             CandelaBackdrop(dark: dark)
-            ScrollView {
+            VStack {
                 VStack(alignment: .leading, spacing: 26) {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
@@ -53,17 +53,21 @@ struct HomeMock: View {
                     }
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Library").font(.system(.title3, design: .rounded).weight(.semibold)).foregroundColor(p.ink).padding(.horizontal)
-                        let cols = [GridItem(.adaptive(minimum: 104, maximum: 140), spacing: 14)]
-                        LazyVGrid(columns: cols, spacing: 18) {
-                            Tile(title: "Game One", a: 0xF4C6D7, b: 0xC6D8F3, size: 108)
-                            Tile(title: "Game Two", a: 0xC6D8F3, b: 0xF4C6D7, size: 108)
-                            Tile(title: "Game Three", a: 0xF7D4E0, b: 0xB9CDEE, size: 108)
-                            Tile(title: "Game Four", a: 0xB9CDEE, b: 0xF7D4E0, size: 108)
-                            Tile(title: "Game Five", a: 0xF4C6D7, b: 0xB9CDEE, size: 108)
-                            Tile(title: "Game Six", a: 0xC6D8F3, b: 0xF7D4E0, size: 108)
+                        VStack(alignment: .leading, spacing: 18) {
+                            HStack(spacing: 14) {
+                                Tile(title: "Game One", a: 0xF4C6D7, b: 0xC6D8F3, size: 108)
+                                Tile(title: "Game Two", a: 0xC6D8F3, b: 0xF4C6D7, size: 108)
+                                Tile(title: "Game Three", a: 0xF7D4E0, b: 0xB9CDEE, size: 108)
+                            }
+                            HStack(spacing: 14) {
+                                Tile(title: "Game Four", a: 0xB9CDEE, b: 0xF7D4E0, size: 108)
+                                Tile(title: "Game Five", a: 0xF4C6D7, b: 0xB9CDEE, size: 108)
+                                Tile(title: "Game Six", a: 0xC6D8F3, b: 0xF7D4E0, size: 108)
+                            }
                         }.padding(.horizontal)
                     }
-                }.padding(.vertical, 60)
+                }.padding(.top, 60)
+                Spacer()
             }
         }.frame(width: W, height: H).environment(\.colorScheme, scheme)
     }
@@ -137,6 +141,56 @@ struct SettingsMock: View {
     }
 }
 
+struct JITMock: View {
+    var body: some View {
+        ZStack {
+            CandelaBackdrop(dark: dark)
+            CandelaStepPage(step: 1, of: 4, symbol: "bolt.horizontal.circle", title: "Set up JIT",
+                message: "Candela needs JIT to run games at full speed. Pair once and Candela can turn it on by itself. You can also skip this and use StikDebug.",
+                primaryTitle: "Continue without pairing", primaryAction: {}) {
+                VStack(spacing: 12) {
+                    CandelaStatusRow(symbol: "network", title: "LocalDevVPN", detail: "Keep it connected while you pair and play.", chip: "Required")
+                    CandelaStatusRow(symbol: "iphone", title: "Pair on this iPhone", detail: "Open iOS Settings, Developer Mode, then tap Pair with Candela.", chip: "Waiting")
+                    Button("Import a pairing file") {}.buttonStyle(CandelaSecondaryButtonStyle())
+                }
+            }
+        }.frame(width: W, height: H).environment(\.colorScheme, scheme).environment(\.candelaStaticLayout, true)
+    }
+}
+
+struct KeysMock: View {
+    var body: some View {
+        ZStack {
+            CandelaBackdrop(dark: dark)
+            CandelaStepPage(step: 2, of: 4, symbol: "key", title: "Import your keys",
+                message: "Candela needs prod.keys and title.keys, dumped from your own hardware. Pick both files at once.",
+                primaryTitle: "Continue", primaryEnabled: false, primaryAction: {}) {
+                VStack(spacing: 12) {
+                    CandelaStatusRow(symbol: "key", title: "prod.keys", chip: "Added", chipTint: .candelaGood)
+                    CandelaStatusRow(symbol: "key.horizontal", title: "title.keys", chip: "Missing")
+                    Button("Choose key files") {}.buttonStyle(CandelaSecondaryButtonStyle())
+                }
+            }
+        }.frame(width: W, height: H).environment(\.colorScheme, scheme).environment(\.candelaStaticLayout, true)
+    }
+}
+
+struct FolderMock: View {
+    var body: some View {
+        ZStack {
+            CandelaBackdrop(dark: dark)
+            CandelaStepPage(step: 4, of: 4, symbol: "folder.badge.plus", title: "Pick a games folder",
+                message: "Optional. If your games live in one folder, Candela can watch it. You can also skip this and add games from anywhere, any time.",
+                primaryTitle: "Skip for now", primaryAction: {}) {
+                VStack(spacing: 12) {
+                    Button("Choose a folder") {}.buttonStyle(CandelaSecondaryButtonStyle())
+                    Text("Folders can be changed in Settings.").font(.footnote).foregroundColor(CandelaPalette(dark: dark).inkSoft)
+                }
+            }
+        }.frame(width: W, height: H).environment(\.colorScheme, scheme).environment(\.candelaStaticLayout, true)
+    }
+}
+
 @MainActor func render<V: View>(_ v: V, _ name: String) {
     let r = ImageRenderer(content: v)
     r.scale = 2
@@ -150,4 +204,7 @@ MainActor.assumeIsolated {
     render(WelcomeMock(), "welcome")
     render(HomeMock(), "home")
     render(SettingsMock(), "settings")
+    render(JITMock(), "setup-jit")
+    render(KeysMock(), "setup-keys")
+    render(FolderMock(), "setup-folder")
 }
