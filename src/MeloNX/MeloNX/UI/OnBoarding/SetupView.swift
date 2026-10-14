@@ -9,8 +9,10 @@ import SwiftUI
 
 enum SetupPage: String, Identifiable, CaseIterable {
     case welcome
+    case jit
     case keys
     case firmware
+    case folder
 
     var id: String { rawValue }
 
@@ -24,21 +26,30 @@ struct SetupView: View {
     @State var currentPage: SetupPage = .first
     
     var body: some View {
-        switch currentPage {
-        case .welcome: WelcomeView(goForward: goForward, finish: finishSetup).transition(.backslide)
-        case .keys: KeysView(goForward: goForward).transition(.backslide)
-        case .firmware: FirmwareView(goForward: goForward).transition(.backslide)
+        ZStack {
+            switch currentPage {
+            case .welcome: WelcomeView(goForward: goForward, finish: finishSetup).transition(.backslide)
+            case .jit: JITSetupView(goForward: goForward).transition(.backslide)
+            case .keys: KeysView(goForward: goForward).transition(.backslide)
+            case .firmware: FirmwareView(goForward: goForward).transition(.backslide)
+            case .folder: RomFolderView(finish: finishSetup).transition(.backslide)
+            }
         }
+        .themedBackground()
     }
     
     func goForward() {
         withAnimation {
             switch currentPage {
             case .welcome:
+                currentPage = .jit
+            case .jit:
                 currentPage = .keys
             case .keys:
                 currentPage = .firmware
             case .firmware:
+                currentPage = .folder
+            case .folder:
                 finishSetup()
             }
         }
@@ -55,48 +66,28 @@ struct ContinueButton: View {
     
     var showCheckmark: Bool = true
     
-    var baseColor: Color = .green
-    
-    var shadowColor: Color {
-        guard !success else { return baseColor.opacity(colorScheme == .dark ? 0.3 : 0.1) }
-        return (enabled ? .accentColor : Color(.darkGray).opacity(colorScheme == .dark ? 0.3 : 0.1))
-    }
+    var baseColor: Color = .candelaGood
     
     func doAction() {
         if enabled { action() }
     }
     
-    var borderColor: Color {
-        guard !success else { return baseColor }
-        return enabled ? Color.accentColor : Color(.systemGray4)
-    }
-    
-    var textColour: Color {
-        guard !success else { return baseColor }
-        return enabled ? Color.white : Color(.systemGray4)
-    }
-    
-    var backgroundColour: Color {
-        guard !success else { return baseColor.opacity(0.15)}
-        return enabled ? .accentColor.opacity(0.15) : .clear
-    }
-    
     var body: some View {
+        let palette = CandelaPalette(dark: colorScheme == .dark)
         Button(action: doAction) {
             Text(success && showCheckmark ? "✓" : text)
-                .padding()
-                .padding(.horizontal, 24)
-                .foregroundStyle(textColour)
+                .font(.system(.headline, design: .rounded))
+                .padding(.vertical, 14)
+                .padding(.horizontal, 36)
+                .foregroundStyle(success ? baseColor : (enabled ? (colorScheme == .dark ? Color(candelaHex: 0x2A1A24) : Color.white) : palette.inkSoft))
                 .background {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(backgroundColour)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(borderColor, lineWidth: 1)
-                        )
+                    Capsule(style: .continuous)
+                        .fill(success ? AnyShapeStyle(baseColor.opacity(0.16)) : (enabled ? AnyShapeStyle(palette.accentGradient) : AnyShapeStyle(palette.inkSoft.opacity(0.18))))
+                        .overlay(Capsule(style: .continuous).stroke(success ? baseColor : Color.clear, lineWidth: 1))
                 }
-                .buttonStyle(.plain)
+                .shadow(color: palette.rose.opacity(enabled && !success && colorScheme != .dark ? 0.3 : 0), radius: 10, x: 0, y: 5)
         }
+        .buttonStyle(.plain)
         .disabled(!enabled)
     }
 }
