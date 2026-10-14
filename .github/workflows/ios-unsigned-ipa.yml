@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: helper embed and diagnostics
+# rebuild trigger: StikJIT framework Info.plist
 on:
   workflow_dispatch:
   push:
@@ -66,6 +66,14 @@ jobs:
           curl -fsSL -o /tmp/StikJIT.xcframework.zip https://github.com/StikDebug/StikJIT/releases/download/1.9.0/StikJIT.xcframework.zip
           unzip -q /tmp/StikJIT.xcframework.zip -d src/MeloNX/Vendor
           test -d src/MeloNX/Vendor/StikJIT.xcframework/ios-arm64/StikJIT.framework
+          # The release's framework has no Info.plist, which Xcode refuses to embed in an app and sideloaders cannot sign.
+          # Add a minimal one (the binary itself is untouched).
+          FW=src/MeloNX/Vendor/StikJIT.xcframework/ios-arm64/StikJIT.framework
+          if [ ! -f "$FW/Info.plist" ]; then
+            P="$FW/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Add :CFBundleExecutable string StikJIT' -c 'Add :CFBundleIdentifier string com.stikdebug.StikJIT' -c 'Add :CFBundleInfoDictionaryVersion string 6.0' -c 'Add :CFBundleName string StikJIT' -c 'Add :CFBundlePackageType string FMWK' -c 'Add :CFBundleShortVersionString string 1.9.0' -c 'Add :CFBundleVersion string 1.9.0' -c 'Add :MinimumOSVersion string 17.4' -c 'Add :CFBundleSupportedPlatforms array' -c 'Add :CFBundleSupportedPlatforms:0 string iPhoneOS' "$P"
+          fi
+          plutil -lint "$FW/Info.plist"
       - name: Build on-device pairing library (Rust, adapted from Husk)
         run: |
           set -euo pipefail
