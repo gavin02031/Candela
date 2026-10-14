@@ -97,6 +97,8 @@ struct CandelaPillTabs<T: Hashable>: View {
 
     var body: some View {
         let p = CandelaPalette(dark: scheme == .dark)
+        ScrollViewReader { proxy in
+        ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 6) {
             ForEach(items.indices, id: \.self) { i in
                 let item = items[i]
@@ -109,20 +111,29 @@ struct CandelaPillTabs<T: Hashable>: View {
                         Text(item.1)
                             .font(.system(.footnote, design: .rounded).weight(.bold))
                             .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(0.9)
                     }
                     .foregroundColor(on ? p.ink : p.inkSoft)
-                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 14)
                     .padding(.vertical, 11)
+                    .fixedSize()
                     .background(
                         Capsule().fill(on ? p.roseSoft.opacity(scheme == .dark ? 0.25 : 0.7) : Color.clear)
                     )
                     .overlay(Capsule().stroke(on ? p.rose.opacity(0.5) : Color.clear, lineWidth: 1.5))
                 }
                 .buttonStyle(.plain)
+                .id(i)
             }
         }
         .padding(6)
+        }
+        .onChange(of: selection) { _ in
+            if let i = items.firstIndex(where: { $0.0 == selection }) {
+                withAnimation { proxy.scrollTo(i, anchor: .center) }
+            }
+        }
+        }
         .candelaSurface(radius: 26)
     }
 }
