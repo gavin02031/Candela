@@ -16,6 +16,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>melonx</string>
+				<string>candela</string>
 			</array>
 		</dict>
 		<dict>
