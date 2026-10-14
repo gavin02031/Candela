@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export, pastel UI, new first-launch setup, theme fix, pre-release, contrast fix, section syntax, log cap, game page, music, target 17.4, combine import, tuning presets, 512 MiB cache, music pause, thermal governor, settings hub, exit button, renames, swapchain fix, dots, home pill, inline settings rows, persistent home button, onboarding card, thermal hysteresis, perf counters
+# rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export, pastel UI, new first-launch setup, theme fix, pre-release, contrast fix, section syntax, log cap, game page, music, target 17.4, combine import, tuning presets, 512 MiB cache, music pause, thermal governor, settings hub, exit button, renames, swapchain fix, dots, home pill, inline settings rows, persistent home button, onboarding card, thermal hysteresis, perf counters, experiment toggles
 on:
   workflow_dispatch:
   push:
