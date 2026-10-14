@@ -6,7 +6,7 @@ struct CandelaStatusPill: View {
     @Environment(\.colorScheme) private var scheme
     let gameCount: Int
     var onMusic: () -> Void
-    var onClassic: () -> Void
+    var onAccount: () -> Void
 
     @State private var battery: Float = -1
     @State private var charging = false
@@ -43,9 +43,7 @@ struct CandelaStatusPill: View {
                     .background(Circle().fill(p.roseSoft.opacity(scheme == .dark ? 0.25 : 0.6)))
             }
             Menu {
-                Button(action: onClassic) {
-                    Label("Use classic library", systemImage: "arrow.uturn.backward")
-                }
+                CandelaLibraryMenuItems(onAccount: onAccount)
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 15, weight: .bold))
@@ -90,11 +88,11 @@ struct CandelaJumpCard: View {
                             .background(p.roseSoft.opacity(0.35))
                     }
                 }
-                .frame(width: 96, height: 96)
+                .frame(width: 84, height: 84)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Jump back in")
-                        .font(.system(.title3, design: .rounded).weight(.heavy)).lineLimit(1).minimumScaleFactor(0.8)
+                        .font(.system(.title3, design: .rounded).weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7).layoutPriority(1)
                         .foregroundColor(p.ink)
                     Text(game?.titleName ?? "No recent game")
                         .font(.subheadline.weight(.medium)).minimumScaleFactor(0.85)
@@ -113,9 +111,9 @@ struct CandelaJumpCard: View {
                         Image(systemName: "play.fill")
                         Text("Resume")
                     }
-                    .font(.system(.subheadline, design: .rounded).weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7)
+                    .font(.system(.subheadline, design: .rounded).weight(.heavy)).lineLimit(1).minimumScaleFactor(0.85).layoutPriority(2)
                     .foregroundColor(.white)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 10)
                     .padding(.vertical, 11)
                     .background(p.accentGradient, in: Capsule())
                 }
