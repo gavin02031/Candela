@@ -13,7 +13,7 @@ nonisolated final class SteamControllerBackend: NSObject, CBCentralManagerDelega
     
     @MainActor private(set) var controllers: [SteamController] = []
     
-    private let queue = DispatchQueue(label: "com.stossy11.melonx.steam-ble", qos: .userInteractive)
+    private let queue = DispatchQueue(label: "app.candela.steam-ble", qos: .userInteractive)
     
     private var central: CBCentralManager?
     private var sessions: [UUID: SteamBLESession] = [:]
