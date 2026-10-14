@@ -321,8 +321,11 @@ namespace Ryujinx.Graphics.Vulkan
             uint nextImage = 0;
             int semaphoreIndex = _frameIndex++ % _imageAvailableSemaphores.Length;
 
+            FrameStats.FramePresented();
+
             while (true)
             {
+                FrameStats.BeginAcquire();
                 Result acquireResult = _gd.SwapchainApi.AcquireNextImage(
                     _device,
                     _swapchain,
@@ -330,6 +333,7 @@ namespace Ryujinx.Graphics.Vulkan
                     _imageAvailableSemaphores[semaphoreIndex],
                     new Fence(),
                     ref nextImage);
+                FrameStats.EndAcquire();
 
                 if (acquireResult == Result.ErrorOutOfDateKhr ||
                     acquireResult == Result.SuboptimalKhr ||
