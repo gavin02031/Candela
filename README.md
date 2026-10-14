@@ -38,9 +38,18 @@ No RAM saving, frame rate, battery life or game compatibility improvement has be
 
 ## Installing and JIT
 
-Candela requires JIT. An unsigned build is not ready to install until it has been signed with your sideloader. Use the current installation and entitlement guidance linked at the top of this README, and make sure your signing setup preserves the app extension and required entitlements.
+Candela requires JIT. An unsigned build is not ready to install until it has been signed with your sideloader. Use the current installation and entitlement guidance in the Entitlements section below, and make sure your signing setup preserves the app extension and required entitlements.
 
 Add only keys, firmware and games dumped from your own Switch, or legal homebrew. No keys, firmware or games are bundled or supplied here. Enable JIT using a method compatible with your exact iOS version. StikDebug is one upstream-recommended route; support for a particular OS/device must be checked, not assumed.
+
+## Entitlements
+
+Entitlements are permissions iOS grants an app to use certain features. Candela can use two:
+
+- **Increased Memory Limit** lets the app use the most RAM iOS allows. It is required on every device.
+- **Extended Virtual Addressing** lets the app ask iOS for more address space than the device physically has. It is a paid developer account entitlement (a TrollStore install also provides it). It is only needed on devices with less than 4 GB of RAM (iPhone) or less than 8 GB (iPad).
+
+Your signing tool has to keep these entitlements and the app extension when it re-signs the IPA. Which entitlements a free account can add depends on your signing tool and iOS version, so check that before relying on it. This section follows the upstream project's guidance: https://starforgejo.dev/projects/MeloNX
 
 ## Building
 
