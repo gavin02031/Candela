@@ -121,6 +121,8 @@ struct GameInfoSheet: View {
                 } header: {
                     Text("Information")
                 }
+                
+                CandelaGameLogsSection(titleId: game.titleId)
             }
             .navigationTitle(game.titleName)
             .navigationBarTitleDisplayMode(.inline)
