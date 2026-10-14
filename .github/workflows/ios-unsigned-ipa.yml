@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export, pastel UI, new first-launch setup, theme fix, pre-release, contrast fix, section syntax, log cap, game page, ios15 fix
+# rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export, pastel UI, new first-launch setup, theme fix, pre-release, contrast fix, section syntax, log cap, game page, music, target 17.4
 on:
   workflow_dispatch:
   push:
@@ -84,7 +84,7 @@ jobs:
           cp target/aarch64-apple-ios/release/libcandela_rppairing.a ../MeloNX/Vendor/lib/
       - name: Build app and RAM donor extension without signing
         run: |
-          xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ACTIVE_COMPILATION_CONDITIONS="$CANDELA_SWIFT_FLAGS" OTHER_LDFLAGS='$(inherited) -lcandela_rppairing' LIBRARY_SEARCH_PATHS='$(inherited) $(SRCROOT)/Vendor/lib' build
+          xcodebuild -project src/MeloNX/MeloNX.xcodeproj -scheme MeloNX -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build IPHONEOS_DEPLOYMENT_TARGET=17.4 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" SWIFT_ACTIVE_COMPILATION_CONDITIONS="$CANDELA_SWIFT_FLAGS" OTHER_LDFLAGS='$(inherited) -lcandela_rppairing' LIBRARY_SEARCH_PATHS='$(inherited) $(SRCROOT)/Vendor/lib' build
       - name: Verify extension and package IPA
         run: |
           set -euo pipefail
