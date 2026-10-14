@@ -16,6 +16,8 @@ struct CandelaHomeView: View {
     private var palette: CandelaPalette { CandelaPalette(dark: colorScheme == .dark) }
     @AppStorage("candelaNewHome") private var useNewHome = true
     @State private var gateGame: GameInfo?
+    @State private var showMusic = false
+    @ObservedObject private var music = CandelaMusic.shared
 
     private let gridColumns = [GridItem(.adaptive(minimum: 104, maximum: 140), spacing: 14)]
 
@@ -47,7 +49,14 @@ struct CandelaHomeView: View {
                 .padding(.vertical, 16)
             }
             .themedBackground()
+            .safeAreaInset(edge: .bottom) {
+                if music.hasItem {
+                    CandelaMiniPlayer(music: music) { showMusic = true }
+                        .padding(.bottom, 4)
+                }
+            }
         }
+        .sheet(isPresented: $showMusic) { CandelaMusicView() }
         .sheet(item: $gateGame) { game in
             CandelaGameGateView(game: game) {
                 store.markPlayed(game)
@@ -70,6 +79,10 @@ struct CandelaHomeView: View {
                 CandelaChip(text: ryujinxController.games.count == 1 ? "1 game" : "\(ryujinxController.games.count) games")
             }
             Spacer()
+            Button { showMusic = true } label: {
+                Image(systemName: "music.note").font(.title2)
+            }
+            .padding(.trailing, 6)
             Menu {
                 Button {
                     useNewHome = false
