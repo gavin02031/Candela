@@ -341,7 +341,6 @@ struct CandelaStepPage<Content: View>: View {
             .padding(.top, 12)
             .padding(.bottom, 28)
             .frame(maxWidth: .infinity)
-            .background(p.backgroundBottom.opacity(0.85).ignoresSafeArea())
         }
     }
 }
