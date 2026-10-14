@@ -87,6 +87,8 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Candela uses the local network to pair with this iPhone for built-in JIT, without a computer.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Candela plays songs from your music library while you game.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>UTExportedTypeDeclarations</key>
