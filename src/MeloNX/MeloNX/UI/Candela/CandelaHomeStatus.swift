@@ -16,7 +16,7 @@ struct CandelaStatusPill: View {
         HStack(spacing: 10) {
             CandelaMark(size: 30, dark: scheme == .dark)
             Text("Candela")
-                .font(.system(.headline, design: .rounded).weight(.heavy))
+                .font(.system(.headline, design: .rounded).weight(.heavy)).lineLimit(1).fixedSize(horizontal: true, vertical: false)
                 .foregroundColor(p.ink)
             Spacer(minLength: 4)
             TimelineView(.periodic(from: .now, by: 30)) { ctx in
@@ -25,7 +25,7 @@ struct CandelaStatusPill: View {
                     Text("|").opacity(0.4)
                     Text(ctx.date, format: .dateTime.month(.defaultDigits).day())
                 }
-                .font(.system(.footnote, design: .rounded).weight(.bold))
+                .font(.system(.footnote, design: .rounded).weight(.bold)).lineLimit(1).fixedSize(horizontal: true, vertical: false)
                 .foregroundColor(p.ink)
             }
             if battery >= 0 {
@@ -33,7 +33,7 @@ struct CandelaStatusPill: View {
                     Image(systemName: charging ? "battery.100.bolt" : "battery.75")
                         .foregroundColor(charging ? p.good : p.inkSoft)
                     Text("\(Int(battery * 100))%")
-                        .font(.system(.caption2, design: .rounded).weight(.bold))
+                        .font(.system(.caption2, design: .rounded).weight(.bold)).lineLimit(1).fixedSize(horizontal: true, vertical: false)
                         .foregroundColor(p.inkSoft)
                 }
             }
@@ -96,16 +96,16 @@ struct CandelaJumpCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Jump back in")
-                        .font(.system(.title3, design: .rounded).weight(.heavy))
+                        .font(.system(.title3, design: .rounded).weight(.heavy)).lineLimit(1).minimumScaleFactor(0.8)
                         .foregroundColor(p.ink)
                     Text(game?.titleName ?? "No recent game")
-                        .font(.subheadline.weight(.medium))
+                        .font(.subheadline.weight(.medium)).minimumScaleFactor(0.85)
                         .foregroundColor(p.inkSoft)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     if let lastPlayed {
                         Text("Last played \(lastPlayed.formatted(.relative(presentation: .named)))")
-                            .font(.caption)
+                            .font(.caption).lineLimit(1).minimumScaleFactor(0.75)
                             .foregroundColor(p.inkSoft.opacity(0.85))
                     }
                 }
@@ -115,9 +115,9 @@ struct CandelaJumpCard: View {
                         Image(systemName: "play.fill")
                         Text("Resume")
                     }
-                    .font(.system(.subheadline, design: .rounded).weight(.heavy))
+                    .font(.system(.subheadline, design: .rounded).weight(.heavy)).lineLimit(1).fixedSize(horizontal: true, vertical: false)
                     .foregroundColor(.white)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 11)
                     .background(p.accentGradient, in: Capsule())
                 }
