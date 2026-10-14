@@ -8,13 +8,15 @@
 //
 
 import SwiftUI
+import Melo_Controller
 
 struct CandelaHomeView: View {
     @EnvironmentObject var ryujinxController: RyujinxController
     @StateObject private var store = CandelaLibraryStore.shared
     @Environment(\.colorScheme) private var colorScheme
     private var palette: CandelaPalette { CandelaPalette(dark: colorScheme == .dark) }
-    @AppStorage("candelaNewHome") private var useNewHome = true
+    @State private var activeSheet: ActiveSheet?
+    @State private var controllerEditor: GameInfo?
     @State private var gateGame: GameInfo?
     @State private var showMusic = false
     @ObservedObject private var music = CandelaMusic.shared
@@ -60,6 +62,26 @@ struct CandelaHomeView: View {
             }
         }
         .sheet(isPresented: $showMusic) { CandelaMusicView() }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .gameInfo(let game):
+                GameInfoSheet(game: game)
+            case .perGameSettings(let game):
+                PerGameSettingsView(game.titleId)
+            case .dlc(let game):
+                DLCManagerSheet(game: game)
+            case .update(let game):
+                UpdateManagerSheet(game: game)
+            case .mods(let game):
+                ModsManagerSheet(game: game)
+            case .account:
+                AccountManagerView()
+            }
+        }
+        .fullScreenCover(isPresented: bindingGame($controllerEditor)) {
+            ControllerView(controller: VirtualControllerManager.shared, isEditing: true, gameId: controllerEditor?.titleId ?? "", gameName: controllerEditor?.titleName)
+                .interactiveDismissDisabled(true)
+        }
         .sheet(item: $gateGame) { game in
             CandelaGameGateView(game: game) {
                 store.markPlayed(game)
@@ -75,7 +97,7 @@ struct CandelaHomeView: View {
             CandelaStatusPill(
                 gameCount: ryujinxController.games.count,
                 onMusic: { showMusic = true },
-                onClassic: { useNewHome = false }
+                onAccount: { activeSheet = .account }
             )
             CandelaJumpCard(
                 game: store.continuePlaying(from: ryujinxController.games).first,
@@ -106,11 +128,7 @@ struct CandelaHomeView: View {
             }
             .padding(.trailing, 6)
             Menu {
-                Button {
-                    useNewHome = false
-                } label: {
-                    Label("Use classic library", systemImage: "arrow.uturn.backward")
-                }
+                CandelaLibraryMenuItems(onAccount: { activeSheet = .account })
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.title2)
@@ -125,12 +143,12 @@ struct CandelaHomeView: View {
             Text("No games yet")
                 .font(.system(.headline, design: .rounded))
                 .foregroundColor(palette.ink)
-            Text("Add games and set up keys in the classic library, then they will show up here.")
+            Text("Add your own game dumps with the Add game button, then they show up here.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-            Button("Use classic library") {
-                useNewHome = false
+            Button("Add game") {
+                CandelaLibraryActions.addGame(ryujinxController)
             }
             .buttonStyle(CandelaSecondaryButtonStyle())
         }
@@ -159,10 +177,23 @@ struct CandelaHomeView: View {
 
     private var library: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Library")
-                .font(.system(.title3, design: .rounded).weight(.semibold))
-                .foregroundColor(palette.ink)
-                .padding(.horizontal)
+            HStack {
+                Text("Library")
+                    .font(.system(.title3, design: .rounded).weight(.semibold))
+                    .foregroundColor(palette.ink)
+                Spacer()
+                Button {
+                    CandelaLibraryActions.addGame(ryujinxController)
+                } label: {
+                    Label("Add game", systemImage: "plus")
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(palette.rose)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(palette.roseSoft.opacity(0.6)))
+                }
+            }
+            .padding(.horizontal)
             LazyVGrid(columns: gridColumns, spacing: 18) {
                 ForEach(ryujinxController.games) { game in
                     tile(for: game, size: nil)
@@ -201,6 +232,7 @@ struct CandelaHomeView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
+            CandelaGameMenuItems(game: game, activeSheet: $activeSheet, controllerEditor: $controllerEditor)
             Button {
                 store.toggleFavorite(game)
             } label: {
