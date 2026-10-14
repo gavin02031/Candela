@@ -62,7 +62,7 @@ struct CandelaHubScreen: View {
         let p = CandelaPalette(dark: scheme == .dark)
         ZStack {
             CandelaBackdrop(dark: scheme == .dark).ignoresSafeArea()
-            ScrollView {
+            VStack(spacing: 14) {
                 VStack(spacing: 14) {
                     statusPill
                     CandelaPillTabs(items: [
@@ -72,14 +72,20 @@ struct CandelaHubScreen: View {
                         (CandelaHubTab.library, "Library", "square.grid.2x2.fill"),
                         (CandelaHubTab.more, "More", "ellipsis"),
                     ], selection: $tab)
-                    contentCard
-                    Text("Candela \(CandelaVersion.display)  -  AGPL-3.0-or-later")
-                        .font(.footnote)
-                        .foregroundColor(p.inkSoft)
-                        .padding(.bottom, 100)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
+                ScrollView {
+                    VStack(spacing: 14) {
+                        contentCard
+                        Text("Candela \(CandelaVersion.display)  -  AGPL-3.0-or-later")
+                            .font(.footnote)
+                            .foregroundColor(p.inkSoft)
+                            .padding(.bottom, 100)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 2)
+                }
             }
         }
     }
@@ -89,7 +95,7 @@ struct CandelaHubScreen: View {
     private var statusPill: some View {
         let p = CandelaPalette(dark: scheme == .dark)
         return HStack(spacing: 12) {
-            CandelaMark().frame(width: 34, height: 34)
+            CandelaMark(size: 30, dark: scheme == .dark)
             Text("Candela")
                 .font(.system(.headline, design: .rounded).weight(.heavy))
                 .foregroundColor(p.ink)
@@ -99,7 +105,9 @@ struct CandelaHubScreen: View {
                 Text(isJIT ? "JIT ready" : "JIT not acquired")
                     .font(.system(.footnote, design: .rounded).weight(.bold))
                     .foregroundColor(isJIT ? p.good : p.warn)
+                    .lineLimit(1)
             }
+            .layoutPriority(1)
             Text("v\(CandelaVersion.display)")
                 .font(.system(.footnote, design: .rounded).weight(.bold))
                 .foregroundColor(p.inkSoft)
