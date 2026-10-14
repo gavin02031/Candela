@@ -55,7 +55,7 @@ struct PerGameSettingsView: View {
     private let totalMemory = ProcessInfo.processInfo.physicalMemory
     
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+        CandelaVersion.display
     }
     
     private var isRegularLayout: Bool {
