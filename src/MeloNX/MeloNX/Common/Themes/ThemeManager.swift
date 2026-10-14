@@ -26,10 +26,10 @@ final class ThemeManager: ObservableObject {
         didSet { persist() }
     }
     
-    private let storageKey = "melonx_selected_theme_id"
+    private let storageKey = "candela_selected_theme_id"
     
     private init() {
-        let savedId = UserDefaults.standard.string(forKey: "melonx_selected_theme_id") ?? "default"
+        let savedId = UserDefaults.standard.string(forKey: "candela_selected_theme_id") ?? UserDefaults.standard.string(forKey: "melonx_selected_theme_id") ?? "default"
         currentTheme = AppTheme.allBuiltIn.first { $0.id == savedId } ?? .defaultTheme
     }
     
