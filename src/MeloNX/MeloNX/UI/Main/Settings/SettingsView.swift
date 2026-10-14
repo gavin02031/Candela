@@ -259,7 +259,7 @@ struct SettingsView: View {
                             } label: {
                                 Label(title: {
                                     if memoryLimit && extendedVirtualAddressing {
-                                        Text(memoryText + "  ") + Text(Image(systemName: "checkmark.circle.fill")).foregroundColor(.green)
+                                        Text(memoryText + "  ") + Text(Image(systemName: "checkmark.circle.fill")).foregroundColor(.candelaGood)
                                     } else if memoryLimit {
                                         Text(memoryText + "  ") + Text(Image(systemName: "checkmark.circle.fill")).foregroundColor(needsExtendedVirtualAddressing ? .orange : .green)
                                     } else {
@@ -300,7 +300,7 @@ struct SettingsView: View {
                                 .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48)
                                 .background(
                                     selectedCategory == category
-                                    ? theme.accent.secondary
+                                    ? theme.accent.primary
                                     : Color(.tertiarySystemGroupedBackground),
                                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 )
@@ -315,7 +315,7 @@ struct SettingsView: View {
                     .padding(.horizontal, 16)
                 }
                 .padding(.vertical, 10)
-                .background(Color(.secondarySystemGroupedBackground))
+                .background(.ultraThinMaterial)
                 
                 Divider()
                 
@@ -387,20 +387,20 @@ struct SettingsView: View {
     private var jitRow: some View {
         HStack(spacing: 6) {
             Circle()
-                .fill(ryujinxController.isJITEnabled ? Color.green : Color.red)
+                .fill(ryujinxController.isJITEnabled ? Color.candelaGood : Color.candelaBad)
                 .frame(width: 8, height: 8)
             if ProcessInfo.processInfo.isiOSAppOnMac && !checkAppEntitlement("get-task-allow") {
                 Text("JIT Enabled (macOS)")
-                    .foregroundColor(ryujinxController.isJITEnabled ? .green : .red)
+                    .foregroundColor(ryujinxController.isJITEnabled ? Color.candelaGood : Color.candelaBad)
             } else if !checkAppEntitlement("get-task-allow") &&
                         !checkAppEntitlement("com.apple.security.cs.allow-jit") &&
                         !checkAppEntitlement("dynamic-codesigning") &&
                         !ryujinxController.isJITEnabled {
                 Text("No JIT Support")
-                    .foregroundColor(.red)
+                    .foregroundColor(.candelaBad)
             } else {
                 Text(ryujinxController.isJITEnabled ? "JIT Enabled" : "JIT Not Acquired")
-                    .foregroundColor(ryujinxController.isJITEnabled ? .green : .red)
+                    .foregroundColor(ryujinxController.isJITEnabled ? Color.candelaGood : Color.candelaBad)
             }
             
             Spacer()
@@ -872,12 +872,12 @@ struct SettingsView: View {
                 
                 NativeToggleRow("Donate Guest RAM", icon: "externaldrive.connected.to.line.below",
                                 isOn: nativeSettingsManager.donateGuestMemory(true).projectedValue,
-                                info: "Holds guest RAM in helper processes so it counts against their memory limits instead of MeloNX's. Experimental: the helpers can be killed under memory pressure, which ends the game. Leave ON if unsure.")
+                                info: "Holds guest RAM in helper processes so it counts against their memory limits instead of Candela's. Experimental: the helpers can be killed under memory pressure, which ends the game. Leave ON if unsure.")
                 .disabled(!RamDonor.isSupported)
                 
                 NativeToggleRow("Donate GPU Buffers", icon: "memorychip",
                                 isOn: nativeSettingsManager.donateGpuBuffers(false).projectedValue,
-                                info: "Reserves up to 512 MiB in memory helpers for eligible GPU buffers and uploads. May reduce MeloNX's memory footprint in large scenes; does not move texture allocations. Experimental, requires a game restart. Falls back to normal memory when unavailable.")
+                                info: "Reserves up to 512 MiB in memory helpers for eligible GPU buffers and uploads. May reduce Candela's memory footprint in large scenes; does not move texture allocations. Experimental, requires a game restart. Falls back to normal memory when unavailable.")
                 .disabled(!RamDonor.isSupported)
                 
                 NativeToggleRow("Launch without the memory entitlement (use memory helper)", icon: "exclamationmark.shield",
@@ -940,7 +940,7 @@ struct SettingsView: View {
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundColor(.secondary)
                     Image(systemName: "heart")
-                        .foregroundColor(.purple)
+                        .foregroundColor(.accentColor)
                         .font(.footnote)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
