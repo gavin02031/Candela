@@ -25,7 +25,50 @@ struct SetupView: View {
     
     @State var currentPage: SetupPage = .first
     
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
+        let p = CandelaPalette(dark: scheme == .dark)
+        VStack(spacing: 12) {
+            HStack {
+                if currentPage != .first {
+                    CandelaBackPill { goBack() }
+                        .transition(.opacity)
+                }
+                Spacer()
+                HStack(spacing: 6) {
+                    ForEach(pages) { page in
+                        Capsule()
+                            .fill(page == currentPage ? p.rose : p.rose.opacity(0.22))
+                            .frame(width: page == currentPage ? 22 : 8, height: 8)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .frame(minHeight: 44)
+            pageStack
+                .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+                .candelaSurface(radius: 34)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 14)
+        }
+        .themedBackground()
+    }
+
+    func goBack() {
+        withAnimation {
+            switch currentPage {
+            case .welcome: break
+            case .jit: currentPage = .welcome
+            case .keys: currentPage = .jit
+            case .firmware: currentPage = .keys
+            case .folder: currentPage = .firmware
+            }
+        }
+    }
+
+    private var pageStack: some View {
         ZStack {
             switch currentPage {
             case .welcome: WelcomeView(goForward: goForward, finish: finishSetup).transition(.backslide)
@@ -35,7 +78,6 @@ struct SetupView: View {
             case .folder: RomFolderView(finish: finishSetup).transition(.backslide)
             }
         }
-        .themedBackground()
     }
     
     func goForward() {
