@@ -880,6 +880,11 @@ struct SettingsView: View {
                                 info: "Reserves up to 512 MiB in memory helpers for eligible GPU buffers and uploads. May reduce MeloNX's memory footprint in large scenes; does not move texture allocations. Experimental, requires a game restart. Falls back to normal memory when unavailable.")
                 .disabled(!RamDonor.isSupported)
                 
+                NativeToggleRow("Launch without the memory entitlement (use memory helper)", icon: "exclamationmark.shield",
+                                isOn: nativeSettingsManager.launchWithoutMemoryEntitlement(false).projectedValue,
+                                info: "For installs signed with a free Apple ID, which cannot carry the increased memory limit. Lets games start anyway and relies on the memory helper instead. Experimental: not measured, and games may close under memory pressure. Leave OFF if your install already shows the memory limit as Enabled.")
+                .disabled(!RamDonor.isSupported)
+                
                 NativeToggleRow("Kill Helpers After Mapping", icon: "xmark.octagon",
                                 isOn: nativeSettingsManager.killDonorsAfterMapping(true).projectedValue,
                                 info: "kills the memory helpers as soon as their memory has been mapped, then keeps running on it. Leave ON if unsure.")
@@ -890,6 +895,9 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if totalMemory < 5723 {
                         Text("Expand Guest RAM requires at least 6 GB of physical memory.")
+                    }
+                    if nativeSettingsManager.launchWithoutMemoryEntitlement(false).value && !checkAppEntitlement("com.apple.developer.kernel.increased-memory-limit") {
+                        Text("Running without the memory entitlement: this install is relying on the memory helper. Expect lower headroom than a build signed with the entitlement.")
                     }
                     if !RamDonor.isSupported {
                         Text("Donate Guest RAM needs the memory helper, which is missing from however you sideloaded this.")
