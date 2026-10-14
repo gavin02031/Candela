@@ -295,20 +295,14 @@ public final class RyujinxController: ObservableObject {
         
         let stamp = CandelaLogTools.stampFormatter.string(from: Date())
         let logPrefix = CandelaLogTools.prefix(for: game.titleId)
-        cleanupOldLogs(in: logsDir, keep: 5, prefix: logPrefix)
+        cleanupOldLogs(in: logsDir, keep: 10, prefix: logPrefix)
         
         let fileName = "\(logPrefix)\(stamp).log"
         let logURL = logsDir.appendingPathComponent(fileName)
         
         fileManager.createFile(atPath: logURL.path, contents: nil)
         
-        let fd = open(logURL.path, O_WRONLY | O_APPEND, 0o644)
-        guard fd >= 0 else { return }
-        
-        dup2(fd, STDOUT_FILENO)
-        dup2(fd, STDERR_FILENO)
-        
-        close(fd)
+        CandelaLogCapture.start(to: logURL)
     }
     
     func cleanupOldLogs(in directory: URL, keep: Int, prefix: String = "MeloNX-Log-") {
