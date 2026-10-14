@@ -10,7 +10,7 @@
 import SwiftUI
 
 struct CandelaLibraryRootView: View {
-    @AppStorage("candelaNewHome") private var useNewHome = false
+    @AppStorage("candelaNewHome") private var useNewHome = true
 
     var body: some View {
         if useNewHome {
@@ -23,7 +23,7 @@ struct CandelaLibraryRootView: View {
 
 /// Settings row for the beta home screen.
 struct CandelaHomeToggleRow: View {
-    @AppStorage("candelaNewHome") private var useNewHome = false
+    @AppStorage("candelaNewHome") private var useNewHome = true
 
     var body: some View {
         Toggle("New Candela Home (beta)", isOn: $useNewHome)
