@@ -62,7 +62,7 @@ struct ThemedViewModifier: ViewModifier {
             .environment(\.appTheme, manager.currentTheme)
             .accentColor(manager.currentTheme.accent.primary)
             .preferredColorScheme(
-                manager.currentTheme.backgroundStyle == .systemDefault ? nil : manager.currentTheme.isDark ? .dark : .light
+                manager.currentTheme.isDark ? .dark : .light
             )
     }
 }
