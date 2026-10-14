@@ -242,6 +242,7 @@ public final class RyujinxController: ObservableObject {
         loadWithoutSave(game.titleId)
         
         var settings = perSettings[game.titleId] ?? PerformancePresets.config(for: game, base: settings) ?? settings
+        settings.resScale = CandelaThermal.shared.beginSession(scale: settings.resScale)
         
         let preferredNetworkInterfaceId = settings.multiplayerLanInterfaceId == "0" ? self.settings.multiplayerLanInterfaceId : settings.multiplayerLanInterfaceId
         
