@@ -80,6 +80,9 @@ struct CandelaHomeView: View {
             CandelaJumpCard(
                 game: store.continuePlaying(from: ryujinxController.games).first,
                 gameCount: ryujinxController.games.count,
+                lastPlayed: store.continuePlaying(from: ryujinxController.games).first.flatMap { g in
+                    store.lastPlayed[CandelaLibraryStore.key(for: g)].map { Date(timeIntervalSince1970: $0) }
+                },
                 onPlay: { gateGame = $0 }
             )
         }
