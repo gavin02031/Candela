@@ -204,7 +204,7 @@ struct SettingsView: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .frame(maxWidth: .infinity)
-                            .background(Color(.tertiarySystemGroupedBackground),
+                            .background(CandelaPalette(dark: colorScheme == .dark).field,
                                         in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                         
                         Button {
@@ -229,7 +229,7 @@ struct SettingsView: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .frame(maxWidth: .infinity)
-                            .background(Color(.tertiarySystemGroupedBackground),
+                            .background(CandelaPalette(dark: colorScheme == .dark).field,
                                         in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
                         .buttonStyle(.plain)
@@ -274,7 +274,7 @@ struct SettingsView: View {
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
                                 .frame(maxWidth: .infinity)
-                                .background(Color(.tertiarySystemGroupedBackground),
+                                .background(CandelaPalette(dark: colorScheme == .dark).field,
                                             in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                             }
                         }
@@ -301,7 +301,7 @@ struct SettingsView: View {
                                 .background(
                                     selectedCategory == category
                                     ? theme.accent.primary
-                                    : Color(.tertiarySystemGroupedBackground),
+                                    : CandelaPalette(dark: colorScheme == .dark).field,
                                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 )
                                 .foregroundStyle(
@@ -315,11 +315,12 @@ struct SettingsView: View {
                     .padding(.horizontal, 16)
                 }
                 .padding(.vertical, 10)
-                .background(.ultraThinMaterial)
+                .background(CandelaPalette(dark: colorScheme == .dark).card.opacity(0.7))
                 
                 Divider()
                 
                 selectedCategory.formView(for: self)
+                    .modifier(HiddenScrollBackground())
                     .id(selectedCategory.id)
                 
             }
