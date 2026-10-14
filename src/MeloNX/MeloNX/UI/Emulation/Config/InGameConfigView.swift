@@ -36,10 +36,48 @@ struct InGameConfigView: View {
     @State var rotationlock: Bool = false
     @State var showingKeyboardConfig: Bool = false
     @State var showControllerSettings: Bool = false
+    @State private var showLeaveConfirm = false
     
 
     
     var body: some View {
+        HStack(spacing: 0) {
+            homeButton
+            gameMenu
+        }
+        .confirmationDialog("Leave game?", isPresented: $showLeaveConfirm, titleVisibility: .visible) {
+            Button("Leave game", role: .destructive) { leaveGame() }
+            Button("Keep playing", role: .cancel) { }
+        } message: {
+            Text("Progress since your last in-game save will be lost.")
+        }
+    }
+
+    private func leaveGame() {
+        Ryujinx.stopEmulation()
+        Ryujinx.emulationView = nil
+        CandelaThermal.shared.endSession()
+        ryujinxController.isRunning = .stopped
+    }
+
+    private var homeButton: some View {
+        Button {
+            menuViewHandler.triggerButton()
+            showLeaveConfirm = true
+        } label: {
+            Image(systemName: "house.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(Circle().fill(Color.black.opacity(0.35)))
+        }
+        .padding(.leading)
+        .opacity(menuViewHandler.showButton ? 1 : 0)
+        .allowsHitTesting(menuViewHandler.showButton)
+        .animation(.easeInOut(duration: 0.6), value: menuViewHandler.showButton)
+    }
+
+    private var gameMenu: some View {
         Menu {
             menuButton
         } label: {
@@ -98,12 +136,10 @@ struct InGameConfigView: View {
         
         
         Button(role: .destructive) {
-            Ryujinx.stopEmulation()
-            Ryujinx.emulationView = nil
-            ryujinxController.isRunning = .stopped
+            showLeaveConfirm = true
         } label: {
             Label {
-                Text("Exit (Unstable)")
+                Text("Leave game")
             } icon: {
                 Image(systemName: "x.circle")
             }
