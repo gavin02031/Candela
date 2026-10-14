@@ -13,19 +13,17 @@ struct CandelaStatusPill: View {
 
     var body: some View {
         let p = CandelaPalette(dark: scheme == .dark)
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             CandelaMark(size: 30, dark: scheme == .dark)
             Text("Candela")
-                .font(.system(.headline, design: .rounded).weight(.heavy)).lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                .font(.system(.headline, design: .rounded).weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7)
                 .foregroundColor(p.ink)
             Spacer(minLength: 4)
             TimelineView(.periodic(from: .now, by: 30)) { ctx in
                 HStack(spacing: 6) {
                     Text(ctx.date, format: .dateTime.hour().minute())
-                    Text("|").opacity(0.4)
-                    Text(ctx.date, format: .dateTime.month(.defaultDigits).day())
                 }
-                .font(.system(.footnote, design: .rounded).weight(.bold)).lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                .font(.system(.footnote, design: .rounded).weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
                 .foregroundColor(p.ink)
             }
             if battery >= 0 {
@@ -33,7 +31,7 @@ struct CandelaStatusPill: View {
                     Image(systemName: charging ? "battery.100.bolt" : "battery.75")
                         .foregroundColor(charging ? p.good : p.inkSoft)
                     Text("\(Int(battery * 100))%")
-                        .font(.system(.caption2, design: .rounded).weight(.bold)).lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                        .font(.system(.caption2, design: .rounded).weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
                         .foregroundColor(p.inkSoft)
                 }
             }
@@ -115,7 +113,7 @@ struct CandelaJumpCard: View {
                         Image(systemName: "play.fill")
                         Text("Resume")
                     }
-                    .font(.system(.subheadline, design: .rounded).weight(.heavy)).lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                    .font(.system(.subheadline, design: .rounded).weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7)
                     .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 11)
