@@ -71,6 +71,7 @@ struct CandelaJumpCard: View {
     @Environment(\.colorScheme) private var scheme
     let game: GameInfo?
     let gameCount: Int
+    var lastPlayed: Date? = nil
     var onPlay: (GameInfo) -> Void
 
     var body: some View {
@@ -91,7 +92,7 @@ struct CandelaJumpCard: View {
                             .background(p.roseSoft.opacity(0.35))
                     }
                 }
-                .frame(width: 84, height: 84)
+                .frame(width: 96, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Jump back in")
@@ -102,14 +103,23 @@ struct CandelaJumpCard: View {
                         .foregroundColor(p.inkSoft)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
+                    if let lastPlayed {
+                        Text("Last played \(lastPlayed.formatted(.relative(presentation: .named)))")
+                            .font(.caption)
+                            .foregroundColor(p.inkSoft.opacity(0.85))
+                    }
                 }
                 Spacer()
                 if game != nil {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
-                        .background(p.accentGradient, in: Circle())
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.fill")
+                        Text("Resume")
+                    }
+                    .font(.system(.subheadline, design: .rounded).weight(.heavy))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 11)
+                    .background(p.accentGradient, in: Capsule())
                 }
             }
             .padding(14)
