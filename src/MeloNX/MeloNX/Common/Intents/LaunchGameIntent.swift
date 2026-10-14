@@ -36,10 +36,10 @@ struct LaunchGameIntentDef: AppIntent {
         
         let name = findClosestGameName(input: gameName, games: ryujinx.compactMap(\.titleName))
         
-        var urlString = "melonx://game?name=\(name ?? gameName)"
+        var urlString = "candela://game?name=\(name ?? gameName)"
         
         if let gameTitleId = findClosestGameName(input: gameName, games: ryujinx.compactMap(\.titleId)) {
-            urlString = "melonx://game?id=\(gameTitleId)"
+            urlString = "candela://game?id=\(gameTitleId)"
         }
         
         if let url = URL(string: urlString) {
