@@ -67,7 +67,7 @@ struct NoJITView: View {
                 
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .foregroundColor(.candelaGood)
                         .font(.system(size: 16))
                     
                     Text("Enabling JIT is required for the emulator to function.")
