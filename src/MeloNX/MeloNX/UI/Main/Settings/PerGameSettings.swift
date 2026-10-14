@@ -553,7 +553,7 @@ struct PerGameSettingsView: View {
                         .font(.system(.footnote, design: .monospaced))
                         .foregroundColor(.secondary)
                     Image(systemName: "heart")
-                        .foregroundColor(.purple)
+                        .foregroundColor(.accentColor)
                         .font(.footnote)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
