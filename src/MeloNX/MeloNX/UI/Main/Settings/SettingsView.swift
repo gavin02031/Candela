@@ -36,7 +36,7 @@ struct SettingsView: View {
     @FocusState private var isArgumentsKeyboardVisible: Bool
     
     
-    private var config: Binding<Options> {
+    var config: Binding<Options> {
         Binding(
             get: { ryujinxController.settings },
             set: {
@@ -185,6 +185,10 @@ struct SettingsView: View {
     // MARK: - iPhone
     
     var iOSSettings: some View {
+        candelaHub
+    }
+
+    var legacyIOSSettings: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 VStack(spacing: 8) {
