@@ -23,9 +23,12 @@ enum PerformancePresets {
 
         var tuned = base
 
-        // Shared: cache compiled shaders and use macro HLE to cut CPU/GPU work.
+        // Shared: cache compiled shaders, build shaders on a background thread, and use
+        // macro HLE to cut CPU/GPU work. Stub logging is off: it spams and costs CPU.
         tuned.disableShaderCache = false
+        tuned.enableAsyncShaderCompilation = true
         tuned.disableMacroHLE = false
+        tuned.loggingDisableStub = true
         // Handheld mode renders at a much lower resolution than docked.
         tuned.disableDockedMode = true
 
@@ -33,7 +36,8 @@ enum PerformancePresets {
             // Heaviest of the three: render at most 0.75x.
             tuned.resScale = min(tuned.resScale, 0.75)
         } else if isOdyssey {
-            tuned.resScale = min(tuned.resScale, 1.0)
+            // Device logs show the GPU thread is the limiter in busy scenes.
+            tuned.resScale = min(tuned.resScale, 0.85)
         } else if isTomodachi {
             // The fork README says this fixes crashes for Tomodachi Life.
             tuned.ignoreMissingServices = true
