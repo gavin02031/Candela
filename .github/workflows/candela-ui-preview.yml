@@ -1,0 +1,47 @@
+name: Candela UI preview
+
+# Renders layout mock-ups from the design tokens in UI/Candela/CandelaTheme.swift
+# and publishes the PNGs to the ui-previews branch. Mock-ups only, not the app.
+on:
+  push:
+    paths:
+      - '.github/candela-preview/**'
+      - '.github/workflows/candela-ui-preview.yml'
+      - 'src/MeloNX/MeloNX/UI/Candela/CandelaTheme.swift'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render
+        run: |
+          mkdir -p /tmp/pv && cp .github/candela-preview/main.swift /tmp/pv/main.swift
+          cp src/MeloNX/MeloNX/UI/Candela/CandelaTheme.swift /tmp/pv/CandelaTheme.swift
+          cd /tmp/pv
+          swiftc -o pv CandelaTheme.swift main.swift
+          ./pv
+          ./pv dark
+          ls out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candela-ui-preview
+          path: /tmp/pv/out/*.png
+      - name: Publish to ui-previews branch
+        run: |
+          set -e
+          git config user.name "candela-ci"
+          git config user.email "candela-ci@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin ui-previews >/dev/null 2>&1; then
+            git fetch origin ui-previews && git checkout -B ui-previews origin/ui-previews
+          else
+            git checkout --orphan ui-previews && git rm -rf . >/dev/null 2>&1 || true
+          fi
+          mkdir -p previews && cp /tmp/pv/out/*.png previews/
+          git add previews
+          git commit -m "UI preview mock-ups for ${GITHUB_SHA::7}" || exit 0
+          git push origin ui-previews
