@@ -268,6 +268,7 @@
 				4ED5D5092F80DD02007DB057 /* Resources */,
 				4EC480C52F8CCA91008C1955 /* Embed Libraries */,
 				4EDA000100000000000A000A /* Embed Foundation Extensions */,
+				4EDA00020000000000B0000A /* Embed StikJIT */,
 			);
 			buildRules = (
 			);
@@ -317,7 +318,6 @@
 				4EDA00020000000000B00004 /* Sources */,
 				4EDA00020000000000B00005 /* Frameworks */,
 				4EDA00020000000000B00006 /* Resources */,
-				4EDA00020000000000B0000A /* Embed StikJIT */,
 			);
 			buildRules = (
 			);
