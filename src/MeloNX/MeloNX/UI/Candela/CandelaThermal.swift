@@ -16,6 +16,17 @@ final class CandelaThermal: ObservableObject {
     private let stepKey = "candela.thermalStep"
     private let stampKey = "candela.thermalStamp"
     private var inSession = false
+    private let coolStreakKey = "candela.thermalCoolStreak"
+    private var sessionStart = Date()
+    private var hotSince: Date?
+    private var hotSeconds: TimeInterval = 0
+    private var peakState: ProcessInfo.ThermalState = .nominal
+
+    /// Sessions in a row that stayed cool for at least ten minutes. Two are needed before a step fades.
+    private var coolStreak: Int {
+        get { UserDefaults.standard.integer(forKey: coolStreakKey) }
+        set { UserDefaults.standard.set(newValue, forKey: coolStreakKey) }
+    }
 
     var enabled: Bool {
         get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
@@ -37,26 +48,49 @@ final class CandelaThermal: ObservableObject {
     func beginSession(scale: Float) -> Float {
         inSession = true
         escalatedThisSession = false
+        sessionStart = Date()
+        hotSince = nil
+        hotSeconds = 0
+        peakState = .nominal
         state = ProcessInfo.processInfo.thermalState
         let stamp = UserDefaults.standard.double(forKey: stampKey)
-        if step > 0, state == .nominal, Date().timeIntervalSince1970 - stamp > 6 * 3600 {
+        let sinceHot = Date().timeIntervalSince1970 - stamp
+        // Step down is immediate. Step up is slow: two cool sessions in a row, or six quiet hours.
+        if step > 0, state == .nominal, coolStreak >= 2 || sinceHot > 6 * 3600 {
             step -= 1
+            coolStreak = 0
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: stampKey)
         }
+        print("[Candela][thermal] session start state=\(state.rawValue) step=\(step) coolStreak=\(coolStreak) scale-in=\(scale)")
         guard enabled, step > 0 else { return scale }
         return max(0.5, scale * Float(pow(0.85, Double(step))))
     }
 
-    func endSession() { inSession = false }
+    func endSession() {
+        guard inSession else { return }
+        inSession = false
+        let now = Date()
+        if let since = hotSince { hotSeconds += now.timeIntervalSince(since); hotSince = nil }
+        let length = now.timeIntervalSince(sessionStart)
+        if hotSeconds < 30, length >= 600 { coolStreak += 1 } else if hotSeconds >= 30 { coolStreak = 0 }
+        print("[Candela][thermal] session end length=\(Int(length))s hot=\(Int(hotSeconds))s peak=\(peakState.rawValue) step=\(step) coolStreak=\(coolStreak)")
+    }
 
     func reset() { step = 0 }
 
     private func thermalChanged() {
         state = ProcessInfo.processInfo.thermalState
-        guard inSession, enabled, !escalatedThisSession else { return }
-        if state == .serious || state == .critical {
+        guard inSession else { return }
+        if state.rawValue > peakState.rawValue { peakState = state }
+        let hot = state == .serious || state == .critical
+        if hot, hotSince == nil { hotSince = Date() }
+        if !hot, let since = hotSince { hotSeconds += Date().timeIntervalSince(since); hotSince = nil }
+        print("[Candela][thermal] state=\(state.rawValue) t=\(Int(Date().timeIntervalSince(sessionStart)))s")
+        guard enabled, !escalatedThisSession else { return }
+        if hot {
             escalatedThisSession = true
-            step += 1
+            step += (state == .critical ? 2 : 1)
+            coolStreak = 0
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: stampKey)
         }
     }
