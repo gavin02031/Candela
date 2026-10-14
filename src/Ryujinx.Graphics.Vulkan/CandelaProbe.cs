@@ -14,6 +14,7 @@ namespace Ryujinx.Graphics.Vulkan
         private const int MaxLines = 300;
         private static readonly ConcurrentDictionary<string, string> _last = new();
         private static int _lines;
+        private static readonly ConcurrentDictionary<string, int> _perKey = new();
 
         public static void Note(string key, string value)
         {
@@ -25,6 +26,11 @@ namespace Ryujinx.Graphics.Vulkan
             string previous = _last.AddOrUpdate(key, value, (_, _) => value);
 
             if (previous == value && _last[key] == value && _seen.ContainsKey(key + value))
+            {
+                return;
+            }
+
+            if (_perKey.AddOrUpdate(key, 1, (_, n) => n + 1) > 80)
             {
                 return;
             }
