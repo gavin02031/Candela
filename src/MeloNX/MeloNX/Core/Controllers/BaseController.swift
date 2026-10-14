@@ -22,7 +22,7 @@ class BaseController: Equatable, Identifiable {
         return String(pointerInt64, radix: 16, uppercase: true)
     }
     
-    var orgName: String = "MeloNX Virtual Controller"
+    var orgName: String = "Candela Virtual Controller"
     
     var controllerType: ControllerType = .proController
     
