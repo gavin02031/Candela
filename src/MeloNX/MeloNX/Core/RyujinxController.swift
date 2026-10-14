@@ -258,7 +258,7 @@ public final class RyujinxController: ObservableObject {
         let nativeSettingsManager = NativeSettingsManager.shared
         
         if !(nativeSettingsManager.writeStdout.value as Bool) {
-            redirectStdIOToFile()
+            redirectStdIOToFile(for: game)
         }
         
         let expandedRAM = settings.expandRAM
@@ -284,7 +284,7 @@ public final class RyujinxController: ObservableObject {
     }
     
     
-    func redirectStdIOToFile() {
+    func redirectStdIOToFile(for game: GameInfo) {
         let fileManager = FileManager.default
         
         let logsDir = URL.logsFolderURL
@@ -293,9 +293,11 @@ public final class RyujinxController: ObservableObject {
             try? fileManager.createDirectory(at: logsDir, withIntermediateDirectories: true)
         }
         
-        cleanupOldLogs(in: logsDir, keep: 5)
+        let stamp = CandelaLogTools.stampFormatter.string(from: Date())
+        let logPrefix = CandelaLogTools.prefix(for: game.titleId)
+        cleanupOldLogs(in: logsDir, keep: 5, prefix: logPrefix)
         
-        let fileName = "MeloNX-Log-\(Date()).log"
+        let fileName = "\(logPrefix)\(stamp).log"
         let logURL = logsDir.appendingPathComponent(fileName)
         
         fileManager.createFile(atPath: logURL.path, contents: nil)
@@ -309,7 +311,7 @@ public final class RyujinxController: ObservableObject {
         close(fd)
     }
     
-    func cleanupOldLogs(in directory: URL, keep: Int) {
+    func cleanupOldLogs(in directory: URL, keep: Int, prefix: String = "MeloNX-Log-") {
         let fileManager = FileManager.default
         
         guard var files = try? fileManager.contentsOfDirectory(
@@ -318,7 +320,7 @@ public final class RyujinxController: ObservableObject {
             options: .skipsHiddenFiles
         ) else { return }
         
-        files = files.compactMap({ $0.lastPathComponent.hasPrefix("MeloNX-Log-") ? $0 : nil })
+        files = files.compactMap({ $0.lastPathComponent.hasPrefix(prefix) ? $0 : nil })
         
         let sortedFiles = files.sorted {
             let date1 = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
