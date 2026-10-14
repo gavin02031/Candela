@@ -844,6 +844,13 @@ struct SettingsView: View {
                 NativeToggleRow("Write Logs to stdout", icon: "hammer",
                                 isOn: nativeSettingsManager.writeStdout.projectedValue,
                                 info: "Write logs to stdout, disabling the default log file output.")
+                Button {
+                    CandelaLogTools.share()
+                } label: {
+                    Label("Share latest log", systemImage: "square.and.arrow.up")
+                }
+            } footer: {
+                Text("The last 5 sessions are kept in the logs folder, so you can share one after closing the app.")
             }
             
             Section("Behaviour") {
