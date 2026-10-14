@@ -106,9 +106,36 @@ class BaseController: Equatable, Identifiable {
         }
     }
     
+    private static var comboHeld = Set<String>()
+    private static var comboWork: DispatchWorkItem?
+
+    /// Hold Plus and Minus together for 3 seconds to leave the game. Every input source
+    /// (physical, on-screen, keyboard) goes through setButtonState, so it is tracked here.
+    private static func comboUpdate(_ button: VirtualControllerButton, _ down: Bool) {
+        let id = button.id
+        guard id == VirtualControllerButton.start.id || id == VirtualControllerButton.back.id else { return }
+        DispatchQueue.main.async {
+            if down { comboHeld.insert(id) } else { comboHeld.remove(id) }
+            if comboHeld.count == 2 {
+                guard comboWork == nil else { return }
+                let work = DispatchWorkItem {
+                    comboWork = nil
+                    comboHeld.removeAll()
+                    NotificationCenter.default.post(name: .candelaLeaveRequest, object: nil)
+                }
+                comboWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
+            } else {
+                comboWork?.cancel()
+                comboWork = nil
+            }
+        }
+    }
+
     func setButtonState(_ state: UInt8, for button: VirtualControllerButton) {
         guard isActive else { return }
         
+        Self.comboUpdate(button, state == 1)
         Ryujinx.setGamepadButtonState(self.pointer, buttonId: button.rawValue, pressed: state == 1)
     }
     
