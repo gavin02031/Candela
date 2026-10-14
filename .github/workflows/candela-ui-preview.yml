@@ -26,8 +26,9 @@ jobs:
         run: |
           mkdir -p /tmp/pv && cp .github/candela-preview/main.swift /tmp/pv/main.swift
           cp src/MeloNX/MeloNX/UI/Candela/CandelaTheme.swift /tmp/pv/CandelaTheme.swift
+          cp src/MeloNX/MeloNX/UI/Candela/CandelaDots.swift /tmp/pv/CandelaDots.swift
           cd /tmp/pv
-          swiftc -o pv CandelaTheme.swift main.swift
+          swiftc -o pv CandelaTheme.swift CandelaDots.swift main.swift
           ./pv
           ./pv dark
           ls out
