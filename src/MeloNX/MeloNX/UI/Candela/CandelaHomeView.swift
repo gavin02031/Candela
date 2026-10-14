@@ -15,6 +15,7 @@ struct CandelaHomeView: View {
     @Environment(\.colorScheme) private var colorScheme
     private var palette: CandelaPalette { CandelaPalette(dark: colorScheme == .dark) }
     @AppStorage("candelaNewHome") private var useNewHome = true
+    @State private var gateGame: GameInfo?
 
     private let gridColumns = [GridItem(.adaptive(minimum: 104, maximum: 140), spacing: 14)]
 
@@ -46,6 +47,12 @@ struct CandelaHomeView: View {
                 .padding(.vertical, 16)
             }
             .themedBackground()
+        }
+        .sheet(item: $gateGame) { game in
+            CandelaGameGateView(game: game) {
+                store.markPlayed(game)
+                ryujinxController.startGame(game)
+            }
         }
     }
 
@@ -135,8 +142,7 @@ struct CandelaHomeView: View {
     /// A fixed size is used on shelves. A nil size lets the tile fill its grid cell.
     private func tile(for game: GameInfo, size: CGFloat?) -> some View {
         Button {
-            store.markPlayed(game)
-            ryujinxController.startGame(game)
+            gateGame = game
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 ZStack(alignment: .topTrailing) {
