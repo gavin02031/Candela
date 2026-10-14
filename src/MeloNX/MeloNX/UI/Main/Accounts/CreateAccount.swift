@@ -40,7 +40,7 @@ struct CreateAccount: View {
                             .scaledToFill()
                             .frame(width: 100, height: 100)
                             .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.blue, lineWidth: 2))
+                            .overlay(Circle().stroke(Color.accentColor, lineWidth: 2))
                     } else {
                         ZStack {
                             Circle()
@@ -73,7 +73,7 @@ struct CreateAccount: View {
                         .foregroundColor(.white)
                         .padding()
                         .frame(maxWidth: .infinity)
-                        .background(name.isEmpty || selectedImage == nil ? Color.gray : Color.blue)
+                        .background(name.isEmpty || selectedImage == nil ? Color.gray : Color.accentColor)
                         .cornerRadius(10)
                 }
                 .padding(.horizontal)
