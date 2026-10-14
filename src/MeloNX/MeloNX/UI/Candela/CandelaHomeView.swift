@@ -68,6 +68,22 @@ struct CandelaHomeView: View {
     // MARK: - Sections
 
     private var header: some View {
+        VStack(spacing: 14) {
+            CandelaStatusPill(
+                gameCount: ryujinxController.games.count,
+                onMusic: { showMusic = true },
+                onClassic: { useNewHome = false }
+            )
+            CandelaJumpCard(
+                game: store.continuePlaying(from: ryujinxController.games).first,
+                gameCount: ryujinxController.games.count,
+                onPlay: { gateGame = $0 }
+            )
+        }
+        .padding(.horizontal)
+    }
+
+    private var legacyHeader: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
