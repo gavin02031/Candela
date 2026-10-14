@@ -26,6 +26,11 @@ namespace Ryujinx.Graphics.Vulkan
 
         private static int GetBackgroundCompileThreadCount()
         {
+            if (int.TryParse(Environment.GetEnvironmentVariable("CANDELA_BG_COMPILE_THREADS"), out int forced) && forced >= 1 && forced <= 4)
+            {
+                return forced;
+            }
+
             return Math.Max(1, Math.Min(2, Environment.ProcessorCount / 4));
         }
 
