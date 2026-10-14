@@ -34,6 +34,7 @@ struct CandelaJITSettingsView: View {
     @State private var status = "Not checked"
     @State private var busy = false
     @State private var importing = false
+    @State private var diagnostics = ""
     @ObservedObject private var pairing = CandelaOnDevicePairing.shared
 
     var body: some View {
@@ -95,6 +96,15 @@ struct CandelaJITSettingsView: View {
                 Button("Reset Developer Disk Image", role: .destructive) { run(.resetDDI) }.disabled(busy || !hasPairing)
                 Text(status).font(.footnote)
             }
+            Section("Helper diagnostics") {
+                Text("If the helper will not start, make the report and send it to whoever is helping you. It is also saved as CandelaJITDiagnostics.txt in Candela's Files folder.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                Button("Make report") { diagnostics = CandelaJITDiagnostics.generate() }
+                if !diagnostics.isEmpty {
+                    Text(diagnostics).font(.system(.caption2, design: .monospaced)).textSelection(.enabled)
+                    Button("Copy report") { UIPasteboard.general.string = diagnostics }
+                }
+            }
         }
         .navigationTitle("Built-in JIT")
         .fileImporter(isPresented: $importing, allowedContentTypes: [.propertyList, .data]) { result in
@@ -118,8 +128,9 @@ struct CandelaJITSettingsView: View {
             busy = false
             switch result {
             case .success(let r): status = r.message
-            case .failure(let e): status = e.localizedDescription
+            case .failure(let e): status = e.localizedDescription + " [\((e as NSError).domain) \((e as NSError).code)]"
             }
+            CandelaJITDiagnostics.lastResult = status
         }
     }
 }
