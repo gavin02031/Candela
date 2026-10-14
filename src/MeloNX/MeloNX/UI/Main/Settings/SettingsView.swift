@@ -1038,7 +1038,6 @@ struct SettingsView: View {
             
             // UI Options
             Section("Interface") {
-                CandelaHomeToggleRow()
                 Button {
                     showingThemePicker = true
                 } label: {
