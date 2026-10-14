@@ -10,7 +10,7 @@ import UIKit
 
 class OrientationManager {
     static func lockOrientation(_ orientation: UIInterfaceOrientationMask, rotateTo rotateOrientation: UIInterfaceOrientation) {
-        AlertHandlers.topWindow().overrideUserInterfaceStyle = .unspecified
+        AlertHandlers.topWindow().overrideUserInterfaceStyle = ThemeManager.shared.interfaceStyle
         
         AppDelegate.orientationLock = orientation
         
@@ -19,7 +19,7 @@ class OrientationManager {
     }
     
     static func lockOrientation(_ orientation: UIInterfaceOrientationMask, rotateTo rotateOrientation: UIDeviceOrientation) {
-        AlertHandlers.topWindow().overrideUserInterfaceStyle = .unspecified
+        AlertHandlers.topWindow().overrideUserInterfaceStyle = ThemeManager.shared.interfaceStyle
         
         AppDelegate.orientationLock = orientation
         
@@ -28,7 +28,7 @@ class OrientationManager {
     }
     
     static func lockCurrentOrientation(_ orientation: UIDeviceOrientation) {
-        AlertHandlers.topWindow().overrideUserInterfaceStyle = .unspecified
+        AlertHandlers.topWindow().overrideUserInterfaceStyle = ThemeManager.shared.interfaceStyle
         
         AppDelegate.orientationLock = interfaceOrientationMask(from: orientation)
         
