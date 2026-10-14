@@ -73,6 +73,7 @@ struct CandelaBackdrop: View {
                 colors: [p.skySoft.opacity(dark ? 0.14 : 0.5), .clear],
                 center: .bottomTrailing, startRadius: 0, endRadius: 420
             )
+            CandelaDots(dark: dark)
         }
     }
 }
