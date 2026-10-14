@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export, pastel UI, new first-launch setup, theme fix, pre-release, contrast fix, section syntax, log cap, game page, music, target 17.4, combine import, tuning presets, 512 MiB cache, music pause, thermal governor, settings hub, exit button, renames, swapchain fix, dots, home pill, inline settings rows, persistent home button, onboarding card, thermal hysteresis, perf counters, experiment toggles, scrolling tabs, home dedupe, frame stats, size probe, resume hero, recipes, 1 GiB cache, controller leave, home text fit, plus minus leave, home width hotfix
+# rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export, pastel UI, new first-launch setup, theme fix, pre-release, contrast fix, section syntax, log cap, game page, music, target 17.4, combine import, tuning presets, 512 MiB cache, music pause, thermal governor, settings hub, exit button, renames, swapchain fix, dots, home pill, inline settings rows, persistent home button, onboarding card, thermal hysteresis, perf counters, experiment toggles, scrolling tabs, home dedupe, frame stats, size probe, resume hero, recipes, 1 GiB cache, controller leave, home text fit, plus minus leave, home width hotfix, release 1.2.1
 on:
   workflow_dispatch:
   push:
@@ -156,6 +156,37 @@ jobs:
           NOTES
           cp Candela-1.0-unsigned.ipa Candela-1.2-unsigned.ipa
           gh release create v1.2 Candela-1.2-unsigned.ipa --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Candela 1.2" --notes-file release-notes-1.2.md
+      - name: Publish release v1.2.1
+        if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[release v1.2.1]') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > release-notes-1.2.1.md <<'NOTES'
+          Candela 1.2.1
+          A fix-and-polish update on 1.2. Candela is an iPhone-first emulator front end with a pastel interface, a built-in JIT option and per-game settings.
+
+          What is new
+          - New home screen: status pill, a Jump back in card with Resume and last-played time, Recent and Library rows, and a persistent home button.
+          - Settings are now inline rows with icons, with no old forms to dig through. Play styles are Cool, Balanced and Bright, each with a plain-words description. A style applies to games with no saved settings of their own; set one game on its game page.
+          - Leave game from a controller: hold Plus and Minus together for 3 seconds. The on-screen home button still works by touch.
+          - Larger shader cache budget (1 GiB total) so the cache is not recycled during play.
+          - Smarter thermal governor with hysteresis so resolution does not flap.
+          - Optional experiment toggles (default off) in More: shader cache compression, command-buffer prefill, extra compile threads.
+          - Timing report toggle: writes frame timing, compile and size lines to the log for bug reports.
+          - Text no longer wraps mid-word on the home screen, and text size is capped there so it fits portrait iPhones.
+
+          Install
+          Sign and install the unsigned IPA with SideStore or iloader (keep the app extensions). For JIT, use StikDebug, or the built-in JIT toggle. Minimum iOS is 17.4.
+
+          Known gaps
+          - A foggy or black first image in one game that clears after pause or a scene change is still being investigated. A log probe for it is in this build.
+          - Speed gains have not been measured. This is a CI-compiled build, and the controller shortcut and new home layout have had limited device testing.
+
+          Licensed AGPL-3.0-or-later.
+          NOTES
+          cp Candela-1.0-unsigned.ipa Candela-1.2.1-unsigned.ipa
+          gh release create v1.2.1 Candela-1.2.1-unsigned.ipa --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Candela 1.2.1" --notes-file release-notes-1.2.1.md
       - uses: actions/upload-artifact@v4
         with:
           name: Candela-1.0-unsigned-ipa
