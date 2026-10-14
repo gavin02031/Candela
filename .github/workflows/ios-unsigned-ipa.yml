@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: helper plist fix
+# rebuild trigger: memory entitlement toggle
 on:
   workflow_dispatch:
   push:
