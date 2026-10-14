@@ -71,6 +71,18 @@ func initEnvironmentVariables() {
         ])
     }
 
+    // Hidden experiments, all off by default. Each is a separate switch in More. Restart the app to apply.
+    let defaults = UserDefaults.standard
+    if defaults.bool(forKey: "candela.expCompress") {
+        environment.append(.init(string: "MVK_CONFIG_SHADER_COMPRESSION_ALGORITHM", value: "3"))
+    }
+    if defaults.bool(forKey: "candela.expPrefill") {
+        environment.append(.init(string: "MVK_CONFIG_PREFILL_METAL_COMMAND_BUFFERS", value: "1"))
+    }
+    if defaults.bool(forKey: "candela.expWorkers") {
+        environment.append(.init(string: "CANDELA_BG_COMPILE_THREADS", value: "3"))
+    }
+
     for env in environment { env.set() }
 }
 
