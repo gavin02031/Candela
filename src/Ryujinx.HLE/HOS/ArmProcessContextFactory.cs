@@ -46,6 +46,20 @@ namespace Ryujinx.HLE.HOS
             _codeSize = codeSize;
         }
 
+        private static bool CanReserveHostAddressSpace()
+        {
+            try
+            {
+                using MemoryBlock probe = new(8UL << 30, MemoryAllocationFlags.Reserve);
+
+                return true;
+            }
+            catch (SystemException)
+            {
+                return false;
+            }
+        }
+
         public IProcessContext Create(KernelContext context, ulong pid, ulong addressSpaceSize, InvalidAccessHandler invalidAccessHandler, bool for64Bit)
         {
             IArmProcessContext processContext;
@@ -65,6 +79,15 @@ namespace Ryujinx.HLE.HOS
                 if (!MemoryBlock.SupportsFlags(MemoryAllocationFlags.ViewCompatible))
                 {
                     Logger.Warning?.Print(LogClass.Cpu, "Host system doesn't support views, falling back to software page table");
+
+                    mode = MemoryManagerMode.SoftwarePageTable;
+                }
+
+                if (OperatingSystem.IsIOS() && (mode == MemoryManagerMode.HostMapped || mode == MemoryManagerMode.HostMappedUnsafe) && !CanReserveHostAddressSpace())
+                {
+                    // Without the extended addressing entitlement iOS refuses the large reservations host mapped
+                    // modes rely on, and they would fail one by one later on.
+                    Logger.Warning?.Print(LogClass.Cpu, "Large address space reservations are refused here, using the software page table");
 
                     mode = MemoryManagerMode.SoftwarePageTable;
                 }
