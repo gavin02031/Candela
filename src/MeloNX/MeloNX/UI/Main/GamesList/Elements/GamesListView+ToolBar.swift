@@ -73,7 +73,7 @@ extension GamesListView {
             Button {
                 URL.documentsDirectory.openInFiles()
             } label: {
-                Label("Show MeloNX Folder", systemImage: "folder")
+                Label("Show Candela Folder", systemImage: "folder")
             }
             
             Divider()
@@ -87,7 +87,7 @@ extension GamesListView {
         } label: {
             Label("Options", systemImage: "ellipsis.circle")
                 .labelStyle(.iconOnly)
-                .foregroundColor(.blue)
+                .foregroundColor(.accentColor)
         }
     }
 
