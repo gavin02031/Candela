@@ -271,6 +271,11 @@ struct CandelaHubScreen: View {
     private var moreRows: some View {
         let p = CandelaPalette(dark: scheme == .dark)
         return VStack(spacing: 10) {
+            CandelaRow(icon: "chart.xyaxis.line", title: "Timing report in logs", subtitle: "Adds graphics timing lines to the log. Restart the app to apply", tint: p.sky) {
+                Toggle("", isOn: Binding(get: { UserDefaults.standard.bool(forKey: "candela.mvkPerf") },
+                                         set: { UserDefaults.standard.set($0, forKey: "candela.mvkPerf") }))
+                    .labelsHidden().tint(p.rose)
+            }
             Button { CandelaLogTools.share() } label: {
                 CandelaRow(icon: "square.and.arrow.up", title: "Share latest log", subtitle: "Sends the last 8 MB of the newest log", tint: p.sky) { EmptyView() }
             }.buttonStyle(.plain)
