@@ -35,69 +35,23 @@ struct KeysView: View {
     
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .center) {
-                Spacer()
-                    .frame(height: 110)
-                
-                Image(systemName: "key.circle")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 120, height: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: 120))
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 120)
-                            .fill(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        .blue.opacity(0.6),
-                                        .red.opacity(0.6)
-                                    ]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.1), radius: 15, x: 0, y: 6)
-                
-                Text("Import Keys")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                    .padding()
-                
-                Text("Import Encryption Keys (prod.keys & title.keys).\nRequired to be dumped from a Modded Nintendo Switch.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding()
-                
-                ContinueButton(text: "Import", action: importKeys, success: keysAdded, enabled: .constant(!keysAdded))
-                    .padding()
+        CandelaStepPage(
+            step: 2, of: 4,
+            symbol: keysAdded || onlyProdAdded ? "checkmark.circle" : "key",
+            title: "Import your keys",
+            message: "Candela needs prod.keys and title.keys, dumped from your own hardware. Pick both files at once.",
+            primaryTitle: "Continue",
+            primaryEnabled: onlyProdAdded || keysAdded,
+            primaryAction: goForward2
+        ) {
+            VStack(spacing: 12) {
+                CandelaStatusRow(symbol: "key", title: "prod.keys", chip: (onlyProdAdded || keysAdded) ? "Added" : "Missing", chipTint: (onlyProdAdded || keysAdded) ? .candelaGood : nil)
+                CandelaStatusRow(symbol: "key.horizontal", title: "title.keys", detail: onlyProdAdded ? "Recommended. You can continue without it." : nil, chip: keysAdded ? "Added" : (onlyProdAdded ? "Optional" : "Missing"), chipTint: keysAdded ? .candelaGood : nil)
+                Button(keysAdded ? "Replace keys" : "Choose key files", action: importKeys)
+                    .buttonStyle(CandelaSecondaryButtonStyle())
             }
         }
-        .padding()
         .onAppear(perform: checkForKeys)
-        .ignoresSafeArea()
-        .safeAreaInset(edge: .bottom, alignment: .center, spacing: 0) {
-            Color.clear
-                .frame(height: 80)
-                .ignoresSafeArea()
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.thinMaterial)
-                        .ignoresSafeArea()
-                        .frame(width: .infinity, height: .infinity)
-                )
-                .overlay(alignment: .bottom) {
-                    ContinueButton(text: "Continue", action: goForward2, success: onlyProdAdded, enabled: .constant(onlyProdAdded || keysAdded), showCheckmark: false, baseColor: onlyProdAdded ? .orange : .green)
-                        .if(UIDevice.current.userInterfaceIdiom == .pad) { view in
-                            view
-                                .padding(.bottom)
-                        }
-                }
-        }
     }
     
     func goForward2() {
