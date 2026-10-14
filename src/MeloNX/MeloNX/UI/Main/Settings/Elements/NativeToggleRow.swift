@@ -39,8 +39,13 @@ struct NativeLabelRow: View {
     }
     
     var body: some View {
-        HStack(spacing: 2) {
-            Label(label, systemImage: icon)
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.accentColor)
+                .frame(width: 30, height: 30)
+                .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            Text(label).fontWeight(.semibold)
             if let msg = infoMessage {
                 InfoButton(title: label, message: msg)
                     .padding(.leading, 4)
