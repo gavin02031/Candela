@@ -38,6 +38,13 @@ final class CandelaMusic: ObservableObject {
     private func start() {
         loadLibrary()
         player.beginGeneratingPlaybackNotifications()
+        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                if self.player.playbackState == .playing { self.player.pause() }
+                self.refresh()
+            }
+        }
         NotificationCenter.default.addObserver(forName: .MPMusicPlayerControllerNowPlayingItemDidChange, object: player, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
