@@ -97,8 +97,20 @@ namespace Ryujinx.HLE.HOS
                     case MemoryManagerMode.HostMappedUnsafe:
                         if (addressSpace == null)
                         {
-                            MemoryManagerHostTracked memoryManagerHostTracked = new(context.Memory, addressSpaceSize, mode == MemoryManagerMode.HostMappedUnsafe, invalidAccessHandler);
-                            processContext = new ArmProcessContext<MemoryManagerHostTracked>(pid, cpuEngine, _gpu, memoryManagerHostTracked, addressSpaceSize, for64Bit);
+                            try
+                            {
+                                MemoryManagerHostTracked memoryManagerHostTracked = new(context.Memory, addressSpaceSize, mode == MemoryManagerMode.HostMappedUnsafe, invalidAccessHandler);
+                                processContext = new ArmProcessContext<MemoryManagerHostTracked>(pid, cpuEngine, _gpu, memoryManagerHostTracked, addressSpaceSize, for64Bit);
+                            }
+                            catch (SystemException) when (OperatingSystem.IsIOS())
+                            {
+                                // The host page table is one large reservation that iOS refuses without the increased
+                                // memory limit. A managed page table needs no such mapping.
+                                Logger.Warning?.Print(LogClass.Cpu, "Host page table could not be reserved, falling back to software page table");
+
+                                MemoryManager softwareMemoryManager = new(context.Memory, addressSpaceSize, invalidAccessHandler);
+                                processContext = new ArmProcessContext<MemoryManager>(pid, new JitEngine(_tickSource), _gpu, softwareMemoryManager, addressSpaceSize, for64Bit);
+                            }
                         }
                         else
                         {
