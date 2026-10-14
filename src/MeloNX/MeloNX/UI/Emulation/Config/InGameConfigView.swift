@@ -72,8 +72,7 @@ struct InGameConfigView: View {
                 .background(Circle().fill(Color.black.opacity(0.35)))
         }
         .padding(.leading)
-        .opacity(menuViewHandler.showButton ? 1 : 0)
-        .allowsHitTesting(menuViewHandler.showButton)
+        .opacity(menuViewHandler.showButton ? 1 : 0.55)
         .animation(.easeInOut(duration: 0.6), value: menuViewHandler.showButton)
     }
 
