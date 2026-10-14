@@ -34,19 +34,22 @@ struct CandelaHomeView: View {
                         let addedGames = store.recentlyAdded(from: ryujinxController.games)
                         let favoriteGames = store.favoriteGames(from: ryujinxController.games)
 
-                        if !continueGames.isEmpty {
-                            shelf(title: "Continue Playing", games: continueGames, large: true)
+                        // The Jump back in card already shows the last game, so there is no separate Continue shelf.
+                        // Recently Added only appears when the library is big enough for it to be new information.
+                        if continueGames.count > 1 {
+                            shelf(title: "Recent", games: Array(continueGames.dropFirst()), large: false)
                         }
-                        if !addedGames.isEmpty {
+                        if ryujinxController.games.count > 6, !addedGames.isEmpty {
                             shelf(title: "Recently Added", games: addedGames, large: false)
                         }
-                        if !favoriteGames.isEmpty {
+                        if !favoriteGames.isEmpty, favoriteGames.count < ryujinxController.games.count {
                             shelf(title: "Favorites", games: favoriteGames, large: false)
                         }
                         library
                     }
                 }
                 .padding(.vertical, 16)
+                .padding(.bottom, 24)
             }
             .themedBackground()
             .safeAreaInset(edge: .bottom) {
