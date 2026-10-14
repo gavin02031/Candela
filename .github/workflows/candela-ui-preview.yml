@@ -13,6 +13,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: candela-ui-preview
+  cancel-in-progress: true
+
 jobs:
   preview:
     runs-on: macos-26
