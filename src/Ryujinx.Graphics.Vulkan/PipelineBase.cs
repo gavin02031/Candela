@@ -1084,6 +1084,7 @@ namespace Ryujinx.Graphics.Vulkan
             if (count > 0)
             {
                 ClearScissor = regions[0];
+                CandelaProbe.Note("scissor0", $"{regions[0].X},{regions[0].Y} {regions[0].Width}x{regions[0].Height}");
             }
 
             for (int i = 0; i < count; i++)
@@ -1349,6 +1350,11 @@ namespace Ryujinx.Graphics.Vulkan
             }
 
             DynamicState.ViewportsCount = (uint)count;
+
+            if (count > 0)
+            {
+                CandelaProbe.Note("viewport0", $"{viewports[0].Region.X:F0},{viewports[0].Region.Y:F0} {viewports[0].Region.Width:F0}x{viewports[0].Region.Height:F0} depth {viewports[0].DepthNear:F2}-{viewports[0].DepthFar:F2}");
+            }
 
             for (int i = 0; i < count; i++)
             {
