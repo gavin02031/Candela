@@ -40,6 +40,7 @@ struct EmulationView: View {
     var body: some View {
         Group {
             emulationView()
+                .overlay(alignment: .top) { CandelaThermalPill() }
                 .onAppear() {
                     statisticsHandler.registerPush()
                     
