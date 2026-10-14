@@ -106,7 +106,7 @@ class NativeController: BaseController {
             element.valueChangedHandler = { [weak self] _, value, pressed in
                 guard let self else { return }
                 
-                let isDown = input.isTrigger ? value >= threshold : pressed; self.comboUpdate(input, isDown)
+                let isDown = input.isTrigger ? value >= threshold : pressed
                 
                 for target in targets {
                     self.setButtonState(isDown ? 1 : 0, for: target)
@@ -202,7 +202,7 @@ class NativeController: BaseController {
             element.valueChangedHandler = { [weak self] _, value, pressed in
                 guard let self else { return }
                 
-                let isDown = input.isTrigger ? value >= threshold : pressed; self.comboUpdate(input, isDown)
+                let isDown = input.isTrigger ? value >= threshold : pressed
                 
                 guard isDown else { return }
                 
