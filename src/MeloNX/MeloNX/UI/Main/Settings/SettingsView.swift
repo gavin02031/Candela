@@ -850,6 +850,11 @@ struct SettingsView: View {
                 } label: {
                     Label("Share latest log", systemImage: "square.and.arrow.up")
                 }
+                Button(role: .destructive) {
+                    CandelaLogTools.deleteAllLogs()
+                } label: {
+                    Label("Delete saved logs", systemImage: "trash")
+                }
             } header: {
                 Text("Debug Logging")
             } footer: {
