@@ -83,6 +83,7 @@ struct CandelaJITSettingsView: View {
                       systemImage: hasPairing ? "checkmark.circle" : "xmark.circle")
                 Button("Import pairing file") { importing = true }
                 if hasPairing {
+                    Button("Export pairing file") { CandelaLogTools.exportPairing() }
                     Button("Remove pairing file", role: .destructive) {
                         CandelaPairingStore.clear(); hasPairing = false; status = "Not checked"
                     }
