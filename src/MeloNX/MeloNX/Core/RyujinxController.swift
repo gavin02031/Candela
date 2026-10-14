@@ -306,7 +306,7 @@ public final class RyujinxController: ObservableObject {
         CandelaLogCapture.start(to: logURL)
     }
     
-    func cleanupOldLogs(in directory: URL, keep: Int, prefix: String = "MeloNX-Log-") {
+    func cleanupOldLogs(in directory: URL, keep: Int, prefix: String = "Candela-Log-") {
         let fileManager = FileManager.default
         
         guard var files = try? fileManager.contentsOfDirectory(
