@@ -845,6 +845,7 @@ struct SettingsView: View {
                 NativeToggleRow("Write Logs to stdout", icon: "hammer",
                                 isOn: nativeSettingsManager.writeStdout.projectedValue,
                                 info: "Write logs to stdout, disabling the default log file output.")
+                CandelaThermalSettingsRows()
                 Button {
                     CandelaLogTools.share()
                 } label: {
