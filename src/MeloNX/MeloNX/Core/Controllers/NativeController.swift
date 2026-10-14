@@ -12,6 +12,10 @@ import GameController
 import Melo_Controller
 import simd
 
+extension Notification.Name {
+    static let candelaLeaveRequest = Notification.Name("candelaLeaveRequest")
+}
+
 enum CapturedInput {
     case button(PhysicalInput)
     case stick(PhysicalStick)
@@ -31,6 +35,30 @@ class NativeController: BaseController {
     
     private var captureHandler: ((CapturedInput) -> Void)?
     private var menuHandler: ((MenuInput) -> Void)?
+    private var comboHeld = Set<PhysicalInput>()
+    private var comboWork: DispatchWorkItem?
+
+    /// Hold both stick buttons for 3 seconds to leave the game from a controller.
+    private func comboUpdate(_ input: PhysicalInput, _ down: Bool) {
+        guard input == .leftStickButton || input == .rightStickButton else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if down { self.comboHeld.insert(input) } else { self.comboHeld.remove(input) }
+            if self.comboHeld.count == 2 {
+                guard self.comboWork == nil else { return }
+                let work = DispatchWorkItem { [weak self] in
+                    self?.comboWork = nil
+                    self?.comboHeld.removeAll()
+                    NotificationCenter.default.post(name: .candelaLeaveRequest, object: nil)
+                }
+                self.comboWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
+            } else {
+                self.comboWork?.cancel()
+                self.comboWork = nil
+            }
+        }
+    }
     
     private var profile: GCPhysicalInputProfile? {
         nativeController?.extendedGamepad ?? nativeController?.physicalInputProfile
@@ -78,7 +106,7 @@ class NativeController: BaseController {
             element.valueChangedHandler = { [weak self] _, value, pressed in
                 guard let self else { return }
                 
-                let isDown = input.isTrigger ? value >= threshold : pressed
+                let isDown = input.isTrigger ? value >= threshold : pressed; self.comboUpdate(input, isDown)
                 
                 for target in targets {
                     self.setButtonState(isDown ? 1 : 0, for: target)
@@ -174,7 +202,7 @@ class NativeController: BaseController {
             element.valueChangedHandler = { [weak self] _, value, pressed in
                 guard let self else { return }
                 
-                let isDown = input.isTrigger ? value >= threshold : pressed
+                let isDown = input.isTrigger ? value >= threshold : pressed; self.comboUpdate(input, isDown)
                 
                 guard isDown else { return }
                 
