@@ -30,9 +30,17 @@ class MetalView: MTKView {
         updateUnboundedPresentTargetFps()
     }
 
+    private var hadValidSize = false
+
     override func layoutSubviews() {
         super.layoutSubviews()
         updateUnboundedPresentTargetFps()
+        // At launch the layer can briefly have zero size, which builds a zero-size swapchain. Once a real
+        // size arrives, tell the renderer again so it can rebuild against the real size.
+        if !hadValidSize, bounds.width > 1, bounds.height > 1 {
+            hadValidSize = true
+            Ryujinx.setViewSize(bounds)
+        }
     }
     
     private func transformToTargetCoordinates(_ point: CGPoint) -> CGPoint {
