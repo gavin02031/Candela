@@ -77,7 +77,7 @@ struct AccountSelector: View {
                                             Spacer(minLength: 0)
                                         }
                                     }
-                                    .border(profiles.last_opened == profile.user_id ? Color.blue : Color.gray, width: 1.5)
+                                    .border(profiles.last_opened == profile.user_id ? Color.accentColor : Color.gray, width: 1.5)
                             }
                             .foregroundStyle(Color.primary)
                         }
