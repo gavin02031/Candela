@@ -41,7 +41,7 @@ struct EditAccount: View {
                                 .scaledToFill()
                                 .frame(width: 100, height: 100)
                                 .clipShape(Circle())
-                                .overlay(Circle().stroke(Color.blue, lineWidth: 2))
+                                .overlay(Circle().stroke(Color.accentColor, lineWidth: 2))
                         } else if let base64String = account.image,
                                   let imageData = Data(base64Encoded: base64String),
                                   let image = UIImage(data: imageData) {
@@ -50,7 +50,7 @@ struct EditAccount: View {
                                 .scaledToFill()
                                 .frame(width: 100, height: 100)
                                 .clipShape(Circle())
-                                .overlay(Circle().stroke(Color.blue, lineWidth: 2))
+                                .overlay(Circle().stroke(Color.accentColor, lineWidth: 2))
                         } else {
                             ZStack {
                                 Circle()
@@ -84,7 +84,7 @@ struct EditAccount: View {
                             .foregroundColor(.white)
                             .padding()
                             .frame(maxWidth: .infinity)
-                            .background(name.isEmpty ? Color.gray : Color.blue)
+                            .background(name.isEmpty ? Color.gray : Color.accentColor)
                             .cornerRadius(10)
                     }
                     .padding(.horizontal)
