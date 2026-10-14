@@ -45,6 +45,7 @@ struct InGameConfigView: View {
             homeButton
             gameMenu
         }
+        .onReceive(NotificationCenter.default.publisher(for: .candelaLeaveRequest)) { _ in leaveGame() }
         .confirmationDialog("Leave game?", isPresented: $showLeaveConfirm, titleVisibility: .visible) {
             Button("Leave game", role: .destructive) { leaveGame() }
             Button("Keep playing", role: .cancel) { }
