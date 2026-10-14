@@ -6,7 +6,7 @@
 //
 
 // GameScheme.swift can be dropped into any swift app and be used as normal
-// GameScheme+Game.swift is used only for the MeloNX game struct
+// GameScheme+Game.swift is used only for the Candela game struct
 import Foundation
 
 struct GameScheme: Codable, Identifiable, Equatable, Hashable, Sendable {
