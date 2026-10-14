@@ -29,7 +29,7 @@ struct GameCardView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12))
         } else {
             RoundedRectangle(cornerRadius: 12)
-                .fill(colorScheme == .dark ? Color(.systemGray5) : Color(.systemGray6))
+                .fill(CandelaPalette(dark: colorScheme == .dark).field)
                 .frame(width: 150, height: 150)
             
             Image(systemName: "questionmark.square.dashed")
@@ -49,7 +49,7 @@ struct GameCardView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             } else {
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(colorScheme == .dark ? Color(.systemGray5) : Color(.systemGray6))
+                    .fill(CandelaPalette(dark: colorScheme == .dark).field)
                     .frame(width: 95, height: 95)
                 
                 Image(systemName: "questionmark.square.dashed")
@@ -63,10 +63,10 @@ struct GameCardView: View {
                 .fill(.thinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color(.systemGray4), lineWidth: 1)
+                        .stroke(CandelaPalette(dark: colorScheme == .dark).cardStroke, lineWidth: 1)
                 )
                 .shadow(
-                    color: Color(.darkGray).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                    color: CandelaPalette(dark: colorScheme == .dark).rose.opacity(colorScheme == .dark ? 0 : 0.12),
                     radius: 8,
                     x: 0,
                     y: 2
@@ -96,10 +96,10 @@ struct GameCardView: View {
                                     .fill(.thinMaterial)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
-                                            .stroke(Color(.systemGray4), lineWidth: 1)
+                                            .stroke(CandelaPalette(dark: colorScheme == .dark).cardStroke, lineWidth: 1)
                                     )
                                     .shadow(
-                                        color: Color(.darkGray).opacity(colorScheme == .dark ? 0.3 : 0.1),
+                                        color: CandelaPalette(dark: colorScheme == .dark).rose.opacity(colorScheme == .dark ? 0 : 0.12),
                                         radius: 8,
                                         x: 0,
                                         y: 2
@@ -129,7 +129,7 @@ struct GameCardView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 } else {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(colorScheme == .dark ? Color(.systemGray5) : Color(.systemGray6))
+                        .fill(CandelaPalette(dark: colorScheme == .dark).field)
                         .frame(width: 150, height: 150)
                     
                     Image(systemName: "questionmark.square.dashed")
@@ -166,9 +166,9 @@ struct GameCardView: View {
                 .fill(.thinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color(.systemGray4), lineWidth: 1)
+                        .stroke(CandelaPalette(dark: colorScheme == .dark).cardStroke, lineWidth: 1)
                 )
-                .shadow(color: Color(.darkGray).opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 8, x: 0, y: 2)
+                .shadow(color: CandelaPalette(dark: colorScheme == .dark).rose.opacity(colorScheme == .dark ? 0 : 0.12), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
     }
