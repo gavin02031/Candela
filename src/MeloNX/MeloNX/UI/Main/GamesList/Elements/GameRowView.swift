@@ -34,8 +34,7 @@ struct GameRowView: View {
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(colorScheme == .dark ?
-                                  Color(.systemGray5) : Color(.systemGray6))
+                            .fill(CandelaPalette(dark: colorScheme == .dark).field)
                             .frame(width: 55, height: 55)
                         
                         Image(systemName: "gamecontroller.fill")
