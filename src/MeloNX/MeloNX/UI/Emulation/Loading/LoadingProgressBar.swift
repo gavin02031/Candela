@@ -63,11 +63,11 @@ final class LoadingProgressBarView: UIView {
         trackView.backgroundColor = UIColor.systemGray.withAlphaComponent(0.3)
         addSubview(trackView)
         
-        clumpView.backgroundColor = .systemBlue
+        clumpView.backgroundColor = UIColor(ThemeManager.shared.currentTheme.accent.primary)
         clumpView.alpha = 0
         addSubview(clumpView)
         
-        progressView.backgroundColor = .systemBlue
+        progressView.backgroundColor = UIColor(ThemeManager.shared.currentTheme.accent.primary)
         progressView.isHidden = true
         addSubview(progressView)
     }
