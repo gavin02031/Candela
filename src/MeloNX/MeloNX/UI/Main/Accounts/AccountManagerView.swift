@@ -46,7 +46,7 @@ struct AccountManagerView: View {
                                                 .padding(.horizontal, 8)
                                                 .padding(.vertical, 2)
                                                 .font(.caption2)
-                                                .background(Color.green.opacity(0.15))
+                                                .background(Color.candelaGood.opacity(0.15))
                                                 .cornerRadius(6)
                                         }
                                         Text("Last modified: \(formattedDate(profile.last_modified_timestamp))")
