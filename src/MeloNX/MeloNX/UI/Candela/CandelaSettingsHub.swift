@@ -58,6 +58,9 @@ struct CandelaHubScreen: View {
 
     @State private var tab: CandelaHubTab = .play
     @AppStorage("candela.mvkPerf") private var mvkPerf = false
+    @AppStorage("candela.expCompress") private var expCompress = false
+    @AppStorage("candela.expPrefill") private var expPrefill = false
+    @AppStorage("candela.expWorkers") private var expWorkers = false
 
     var body: some View {
         let p = CandelaPalette(dark: scheme == .dark)
@@ -275,6 +278,15 @@ struct CandelaHubScreen: View {
             CandelaRow(icon: "chart.xyaxis.line", title: "Timing report in logs", subtitle: "Adds graphics timing lines to the log. Restart the app to apply", tint: p.sky) {
                 Toggle("", isOn: $mvkPerf)
                     .labelsHidden().tint(p.rose)
+            }
+            CandelaRow(icon: "flask.fill", title: "Test: compress shader memory", subtitle: "Experiment. Packs shader text in memory with LZ4. Restart to apply", tint: p.sky) {
+                Toggle("", isOn: $expCompress).labelsHidden().tint(p.rose)
+            }
+            CandelaRow(icon: "flask.fill", title: "Test: prefill command buffers", subtitle: "Experiment. Encodes graphics work earlier, uses more memory. Restart to apply", tint: p.sky) {
+                Toggle("", isOn: $expPrefill).labelsHidden().tint(p.rose)
+            }
+            CandelaRow(icon: "flask.fill", title: "Test: 3 shader build threads", subtitle: "Experiment. More background compiling, may use more heat. Restart to apply", tint: p.sky) {
+                Toggle("", isOn: $expWorkers).labelsHidden().tint(p.rose)
             }
             Button { CandelaLogTools.share() } label: {
                 CandelaRow(icon: "square.and.arrow.up", title: "Share latest log", subtitle: "Sends the last 8 MB of the newest log", tint: p.sky) { EmptyView() }
