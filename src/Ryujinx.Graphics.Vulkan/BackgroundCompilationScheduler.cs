@@ -1,5 +1,7 @@
+using Ryujinx.Common.Logging;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Silk.NET.Vulkan;
@@ -108,6 +110,32 @@ namespace Ryujinx.Graphics.Vulkan
 
             private bool _stopping;
 
+            // Counters for the log only. A promotion means a draw had to wait for a compile that was not ready.
+            private long _statDone;
+            private long _statPromoted;
+            private long _statTicks;
+            private long _statMaxTicks;
+            private long _statLastLog = Stopwatch.GetTimestamp();
+
+            private void LogStats()
+            {
+                long now = Stopwatch.GetTimestamp();
+                long last = Interlocked.Read(ref _statLastLog);
+
+                if (now - last < Stopwatch.Frequency * 30 || Interlocked.CompareExchange(ref _statLastLog, now, last) != last)
+                {
+                    return;
+                }
+
+                double toMs = 1000.0 / Stopwatch.Frequency;
+                long done = Interlocked.Read(ref _statDone);
+                long ticks = Interlocked.Read(ref _statTicks);
+
+                Logger.Notice.PrintMsg(LogClass.Gpu,
+                    $"[Candela][perf] {_name} compiles: {done} done, {Interlocked.Read(ref _statPromoted)} demanded by a draw, " +
+                    $"avg {(done > 0 ? ticks * toMs / done : 0):F1} ms, worst {Interlocked.Read(ref _statMaxTicks) * toMs:F0} ms");
+            }
+
             public WorkerQueue(string name, int workerCount)
             {
                 _name = name;
@@ -180,6 +208,7 @@ namespace Ryujinx.Graphics.Vulkan
                     }
 
                     item.Node.List.Remove(item.Node);
+                    Interlocked.Increment(ref _statPromoted);
 
                     Enqueue(item, demanded: true, highPriority: true);
 
@@ -218,7 +247,18 @@ namespace Ryujinx.Graphics.Vulkan
                         }
                     }
 
+                    long started = Stopwatch.GetTimestamp();
                     item.Execute(workerIndex);
+                    long spent = Stopwatch.GetTimestamp() - started;
+                    Interlocked.Increment(ref _statDone);
+                    Interlocked.Add(ref _statTicks, spent);
+
+                    long worst;
+                    while (spent > (worst = Interlocked.Read(ref _statMaxTicks)) && Interlocked.CompareExchange(ref _statMaxTicks, spent, worst) != worst)
+                    {
+                    }
+
+                    LogStats();
 
                     lock (_queueLock)
                     {
