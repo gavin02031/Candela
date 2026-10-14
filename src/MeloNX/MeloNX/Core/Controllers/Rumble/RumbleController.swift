@@ -133,7 +133,7 @@ class RumbleController {
     private var rightChannel: HapticChannel?
     private var fallbackChannel: HapticChannel?
     private let rumbleMultiplier: Float
-    private let hapticQueue = DispatchQueue(label: "com.stossy11.MeloNX.rumble", qos: .userInteractive)
+    private let hapticQueue = DispatchQueue(label: "app.candela.rumble", qos: .userInteractive)
     
     private let hapticEventDuration: TimeInterval = 20
     private let restartGracePeriod: TimeInterval = 1.0
