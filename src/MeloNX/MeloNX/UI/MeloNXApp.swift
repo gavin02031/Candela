@@ -61,6 +61,16 @@ func initEnvironmentVariables() {
         ])
     }
     
+    // Optional: MoltenVK's own timing report (shader and pipeline compile, queue submit, GPU time), logged every 600 frames.
+    if UserDefaults.standard.bool(forKey: "candela.mvkPerf") {
+        environment.append(contentsOf: [
+            .init(string: "MVK_CONFIG_PERFORMANCE_TRACKING", value: "1"),
+            .init(string: "MVK_CONFIG_ACTIVITY_PERFORMANCE_LOGGING_STYLE", value: "0"),
+            .init(string: "MVK_CONFIG_PERFORMANCE_LOGGING_FRAME_COUNT", value: "600"),
+            .init(string: "MVK_CONFIG_LOG_LEVEL", value: "3"),
+        ])
+    }
+
     for env in environment { env.set() }
 }
 
