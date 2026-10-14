@@ -55,7 +55,7 @@ struct GameInfoSheet: View {
                 
                 Section {
                     Button {
-                        UIPasteboard.general.url = URL(string: "melonx://game?id=\(game.titleId)")
+                        UIPasteboard.general.url = URL(string: "candela://game?id=\(game.titleId)")
                         
                         AppAlerts.showSyncAlert(title: "Copied to clipboard!", message: "Launch Link has sucessfully copied to your clipboard.", hasCancel: false)
                     } label: {
