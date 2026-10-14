@@ -416,7 +416,7 @@ namespace Ryujinx.Graphics.Vulkan
                 Layers = Layers,
             };
 
-            CandelaProbe.Note("framebuffer", $"{Width}x{Height} attachments={AttachmentsCount} depth={(_depthStencil != null)}");
+            if (Width >= 256 && Height >= 256) CandelaProbe.Note("framebuffer", $"{Width}x{Height} attachments={AttachmentsCount} depth={(_depthStencil != null)}");
 
             api.CreateFramebuffer(_device, in framebufferCreateInfo, null, out Framebuffer framebuffer).ThrowOnError();
             return new Auto<DisposableFramebuffer>(new DisposableFramebuffer(api, _device, framebuffer), null, _attachments[..AttachmentsCount]);
