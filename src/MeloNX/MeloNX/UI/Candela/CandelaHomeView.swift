@@ -12,7 +12,9 @@ import SwiftUI
 struct CandelaHomeView: View {
     @EnvironmentObject var ryujinxController: RyujinxController
     @StateObject private var store = CandelaLibraryStore.shared
-    @AppStorage("candelaNewHome") private var useNewHome = false
+    @Environment(\.colorScheme) private var colorScheme
+    private var palette: CandelaPalette { CandelaPalette(dark: colorScheme == .dark) }
+    @AppStorage("candelaNewHome") private var useNewHome = true
 
     private let gridColumns = [GridItem(.adaptive(minimum: 104, maximum: 140), spacing: 14)]
 
@@ -43,14 +45,7 @@ struct CandelaHomeView: View {
                 }
                 .padding(.vertical, 16)
             }
-            .background(
-                LinearGradient(
-                    colors: [Color.indigo.opacity(0.22), Color(.systemBackground)],
-                    startPoint: .top,
-                    endPoint: .center
-                )
-                .ignoresSafeArea()
-            )
+            .themedBackground()
         }
     }
 
@@ -59,11 +54,13 @@ struct CandelaHomeView: View {
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Candela")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                Text("\(ryujinxController.games.count) games")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    CandelaMark(size: 34, dark: colorScheme == .dark)
+                    Text("Candela")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundColor(palette.ink)
+                }
+                CandelaChip(text: ryujinxController.games.count == 1 ? "1 game" : "\(ryujinxController.games.count) games")
             }
             Spacer()
             Menu {
@@ -82,11 +79,10 @@ struct CandelaHomeView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: "gamecontroller")
-                .font(.system(size: 44))
-                .foregroundColor(.secondary)
+            CandelaMark(size: 84, dark: colorScheme == .dark)
             Text("No games yet")
-                .font(.headline)
+                .font(.system(.headline, design: .rounded))
+                .foregroundColor(palette.ink)
             Text("Add games and set up keys in the classic library, then they will show up here.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
@@ -94,16 +90,19 @@ struct CandelaHomeView: View {
             Button("Use classic library") {
                 useNewHome = false
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(CandelaSecondaryButtonStyle())
         }
         .frame(maxWidth: .infinity)
         .padding(32)
+        .candelaSurface(radius: 28)
+        .padding(.horizontal)
     }
 
     private func shelf(title: String, games: [GameInfo], large: Bool) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.title3.weight(.semibold))
+                .font(.system(.title3, design: .rounded).weight(.semibold))
+                .foregroundColor(palette.ink)
                 .padding(.horizontal)
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: 14) {
@@ -119,7 +118,8 @@ struct CandelaHomeView: View {
     private var library: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Library")
-                .font(.title3.weight(.semibold))
+                .font(.system(.title3, design: .rounded).weight(.semibold))
+                .foregroundColor(palette.ink)
                 .padding(.horizontal)
             LazyVGrid(columns: gridColumns, spacing: 18) {
                 ForEach(ryujinxController.games) { game in
@@ -142,17 +142,17 @@ struct CandelaHomeView: View {
                 ZStack(alignment: .topTrailing) {
                     CandelaArtView(game: game)
                         .aspectRatio(1, contentMode: .fit)
-                        .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 3)
+                        .shadow(color: palette.rose.opacity(colorScheme == .dark ? 0.0 : 0.25), radius: 8, x: 0, y: 4)
                     if store.isFavorite(game) {
                         Image(systemName: "heart.fill")
                             .font(.caption)
-                            .foregroundColor(.pink)
+                            .foregroundColor(palette.rose)
                             .padding(6)
                     }
                 }
                 Text(game.titleName)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .foregroundColor(palette.ink)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
             }
