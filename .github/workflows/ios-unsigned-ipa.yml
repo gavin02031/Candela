@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# rebuild trigger: guest memory fallback, page table fallback, log share, pairing export
+# rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export
 on:
   workflow_dispatch:
   push:
