@@ -835,7 +835,7 @@ struct SettingsView: View {
     
     var advancedForm: some View {
         Form {
-            Section("Debug Logging") {
+            Section {
                 NativeToggleRow("Debug Logs", icon: "exclamationmark.bubble",
                                 isOn: config.loggingEnableDebug,
                                 info: "Prints debug log messages. Only enable if asked by a staff member, it degrades performance and makes logs harder to read.")
@@ -850,8 +850,10 @@ struct SettingsView: View {
                 } label: {
                     Label("Share latest log", systemImage: "square.and.arrow.up")
                 }
+            } header: {
+                Text("Debug Logging")
             } footer: {
-                Text("The last 5 sessions are kept in the logs folder, so you can share one after closing the app.")
+                Text("The last 5 sessions of each game are kept, so you can share one after closing the app.")
             }
             
             Section("Behaviour") {
