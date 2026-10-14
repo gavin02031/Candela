@@ -142,7 +142,7 @@ extension RyujinxController {
         print("Firmware installation failed: \(raw)")
         
         if raw.contains("MissingKeyException") || raw.contains("InvalidKeyException") {
-            return "The keys MeloNX has can't decrypt this firmware. Import a prod.keys that matches the firmware version, then try again."
+            return "The keys Candela has can't decrypt this firmware. Import a prod.keys that matches the firmware version, then try again."
         }
         
         if raw.contains("InvalidFirmwarePackageException") || raw.localizedCaseInsensitiveContains("invalid firmware") {
@@ -150,7 +150,7 @@ extension RyujinxController {
         }
         
         if raw.contains("UnauthorizedAccessException") || raw.localizedCaseInsensitiveContains("permission denied") {
-            return "MeloNX couldn't read the selected item. Copy it into the MeloNX folder and import it from there."
+            return "Candela couldn't read the selected item. Copy it into the Candela folder and import it from there."
         }
         
         if raw.contains("FileNotFoundException") || raw.contains("DirectoryNotFoundException") {
