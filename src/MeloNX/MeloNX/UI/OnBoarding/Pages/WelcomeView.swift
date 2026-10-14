@@ -15,6 +15,7 @@ struct WelcomeView: View {
     var finish: () -> Void
     
     @State var versionInformation: WhatsNewDoc?
+    @Environment(\.colorScheme) private var colorScheme
     
     var versionNumber: String {
         " " + Bundle.main.versionNumber
@@ -27,12 +28,6 @@ struct WelcomeView: View {
             } else {
                 welcomeView
             }
-        }
-        .task {
-            let versionInformation = try? await fetchRelease(tag: Bundle.main.versionNumber)
-            
-            guard let body = versionInformation?.body else { self.versionInformation = nil; return }
-            self.versionInformation = parseWhatsNew(from: body)
         }
     }
     
@@ -47,27 +42,19 @@ struct WelcomeView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 40)
                             .stroke(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        .blue.opacity(0.6),
-                                        .red.opacity(0.6)
-                                    ]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                ),
+                                CandelaPalette(dark: colorScheme == .dark).accentGradient,
                                 lineWidth: 2
                             )
                     )
-                    .shadow(color: .black.opacity(0.1), radius: 15, x: 0, y: 6)
+                    .shadow(color: CandelaPalette(dark: colorScheme == .dark).rose.opacity(colorScheme == .dark ? 0 : 0.28), radius: 18, x: 0, y: 8)
                     .padding(.top, 60)
                     .onTapGesture(count: 10) {
                         finish()
                     }
                 
                 Text("Welcome to Candela")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
+                    .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                    .foregroundColor(CandelaPalette(dark: colorScheme == .dark).ink)
                     .padding()
             }
             
@@ -101,7 +88,7 @@ struct WelcomeView: View {
                             .padding(.bottom)
                             .padding(.horizontal)
                     }
-                    .background(RoundedRectangle(cornerRadius: 16).fill(.thinMaterial))
+                    .candelaSurface(radius: 20)
                     .frame(width: .infinity)
                     .padding()
                 }
@@ -143,28 +130,24 @@ struct WelcomeView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 40)
                         .stroke(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    .blue.opacity(0.6),
-                                    .red.opacity(0.6)
-                                ]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
+                            CandelaPalette(dark: colorScheme == .dark).accentGradient,
                             lineWidth: 2
                         )
                 )
-                .shadow(color: .black.opacity(0.1), radius: 15, x: 0, y: 6)
+                .shadow(color: CandelaPalette(dark: colorScheme == .dark).rose.opacity(colorScheme == .dark ? 0 : 0.28), radius: 18, x: 0, y: 8)
                 .padding(.top, 60)
                 .onTapGesture(count: 10) {
                     finish()
                 }
             
             Text("Welcome to Candela")
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
-                .padding()
+                .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                .foregroundColor(CandelaPalette(dark: colorScheme == .dark).ink)
+                .padding(.top)
+            
+            Text("Light up your library.")
+                .font(.system(.title3, design: .rounded))
+                .foregroundColor(CandelaPalette(dark: colorScheme == .dark).inkSoft)
             
             Spacer()
         }
