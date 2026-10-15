@@ -1,6 +1,6 @@
 //
 //  InfoButton.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 22/12/2025.
 //
