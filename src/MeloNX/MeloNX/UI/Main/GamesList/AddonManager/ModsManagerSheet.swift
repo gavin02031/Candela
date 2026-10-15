@@ -1,6 +1,6 @@
 //
 //  ModsManagerSheet.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 16/02/2025.
 //
