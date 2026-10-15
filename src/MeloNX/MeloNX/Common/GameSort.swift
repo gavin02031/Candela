@@ -1,6 +1,6 @@
 //
 //  GameSort.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 19/7/2026.
 //
