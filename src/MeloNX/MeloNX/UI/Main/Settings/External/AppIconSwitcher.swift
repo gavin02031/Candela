@@ -1,6 +1,6 @@
 //
 //  AppIconSwitcher.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 02/06/2025.
 //
