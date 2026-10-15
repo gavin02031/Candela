@@ -1,6 +1,6 @@
 //
 //  RomFolderManager.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 31/07/2025.
 //
