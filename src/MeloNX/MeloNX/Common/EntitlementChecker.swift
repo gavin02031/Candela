@@ -1,6 +1,6 @@
 //
 //  EntitlementChecker.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 15/02/2025.
 //
