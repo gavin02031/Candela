@@ -1,6 +1,6 @@
 //
 //  OverlayPosition.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 26/5/2026.
 //
