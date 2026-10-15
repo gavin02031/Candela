@@ -1,6 +1,6 @@
 //
 //  SteamControllerProtocol.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 02/10/2026.
 //
