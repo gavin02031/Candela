@@ -1,6 +1,6 @@
 //
 //  CallbackManager.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 4/4/2026.
 //
