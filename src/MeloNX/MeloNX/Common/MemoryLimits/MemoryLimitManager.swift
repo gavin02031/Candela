@@ -1,6 +1,6 @@
 //
 //  MemoryLimitManager.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 30/7/2026.
 //
