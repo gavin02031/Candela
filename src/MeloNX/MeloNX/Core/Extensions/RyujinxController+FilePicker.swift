@@ -1,6 +1,6 @@
 //
 //  RyujinxController+FilePicker.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 30/4/2026.
 //
