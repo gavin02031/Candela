@@ -1,6 +1,6 @@
 //
 //  OrientationManager.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 18/07/2025.
 //
