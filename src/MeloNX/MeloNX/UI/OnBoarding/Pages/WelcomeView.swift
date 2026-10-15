@@ -1,6 +1,6 @@
 //
 //  WelcomeView.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 7/7/2026.
 //
