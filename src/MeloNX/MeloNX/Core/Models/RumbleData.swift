@@ -1,6 +1,6 @@
 //
 //  RumbleData.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 14/11/2025.
 //
