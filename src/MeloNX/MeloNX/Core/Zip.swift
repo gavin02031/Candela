@@ -1,6 +1,6 @@
 //
 //  Zip.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 13/7/2026.
 //
