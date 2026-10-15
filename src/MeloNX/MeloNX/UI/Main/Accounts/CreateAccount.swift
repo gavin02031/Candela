@@ -1,6 +1,6 @@
 //
 //  CreateAccount.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 17/07/2025.
 //
