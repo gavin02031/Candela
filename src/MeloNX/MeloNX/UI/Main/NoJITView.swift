@@ -1,6 +1,6 @@
 //
 //  JITPopover.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 10/11/2025.
 //
