@@ -1,6 +1,6 @@
 //
 //  main.m
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 2/10/2026.
 //
