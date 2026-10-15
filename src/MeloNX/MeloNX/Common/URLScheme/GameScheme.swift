@@ -1,6 +1,6 @@
 //
 //  GameScheme.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 22/5/2026.
 //
