@@ -1,6 +1,6 @@
 //
 //  LoadingOverlayView.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 07/11/2025.
 //
