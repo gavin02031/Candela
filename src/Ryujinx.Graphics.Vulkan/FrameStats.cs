@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 using Ryujinx.Common.Logging;
+using Ryujinx.Graphics.GAL;
 using System;
 using System.Diagnostics;
 
@@ -21,6 +22,60 @@ namespace Ryujinx.Graphics.Vulkan
         private static long _acquireStart;
         private static int _over33;
         private static int _over50;
+
+        // One-second buckets: seconds under 45 fps ("slow") vs the rest ("fast"), with where the render
+        // thread spent its time. Idle high = game side is late. Fence wait high = GPU is late.
+        private const double SlowFpsLimit = 45.0;
+        private static long _secStart;
+        private static int _secFrames;
+        private static long _secIdle0, _secFence0, _secSubmit0, _secFenceCount0;
+        private static readonly double[] _bucketIdle = new double[2];
+        private static readonly double[] _bucketFence = new double[2];
+        private static readonly double[] _bucketSubmit = new double[2];
+        private static readonly double[] _bucketFenceCount = new double[2];
+        private static readonly int[] _bucketSeconds = new int[2];
+        private static int _longestSlowRun;
+        private static int _slowRun;
+
+        private static void SecondTick(long now)
+        {
+            if (_secStart == 0)
+            {
+                _secStart = now;
+                return;
+            }
+
+            _secFrames++;
+            double elapsed = (now - _secStart) / (double)Stopwatch.Frequency;
+
+            if (elapsed < 1.0)
+            {
+                return;
+            }
+
+            long idle = CandelaPerf.RenderIdleTicks;
+            long fence = CandelaPerf.FenceWaitTicks;
+            long submit = CandelaPerf.SubmitTicks;
+            long fenceCount = CandelaPerf.FenceWaitCount;
+            double toMs = 1000.0 / Stopwatch.Frequency;
+            int b = _secFrames / elapsed < SlowFpsLimit ? 1 : 0;
+
+            _bucketIdle[b] += (idle - _secIdle0) * toMs / elapsed / 10.0;
+            _bucketFence[b] += (fence - _secFence0) * toMs / elapsed / 10.0;
+            _bucketSubmit[b] += (submit - _secSubmit0) * toMs / elapsed / 10.0;
+            _bucketFenceCount[b] += (fenceCount - _secFenceCount0) / elapsed;
+            _bucketSeconds[b]++;
+
+            _slowRun = b == 1 ? _slowRun + 1 : 0;
+            _longestSlowRun = Math.Max(_longestSlowRun, _slowRun);
+
+            _secIdle0 = idle;
+            _secFence0 = fence;
+            _secSubmit0 = submit;
+            _secFenceCount0 = fenceCount;
+            _secFrames = 0;
+            _secStart = now;
+        }
 
         public static void BeginAcquire() => _acquireStart = Stopwatch.GetTimestamp();
 
@@ -60,6 +115,7 @@ namespace Ryujinx.Graphics.Vulkan
             }
 
             _last = now;
+            SecondTick(now);
 
             if (now - _windowStart >= Stopwatch.Frequency * 30)
             {
@@ -93,6 +149,25 @@ namespace Ryujinx.Graphics.Vulkan
                     $"over 33ms: {_over33}, over 50ms: {_over50}, " +
                     $"drawable wait ms p50 {Percentile(w, n, 0.50):F1} p95 {Percentile(w, n, 0.95):F1} max {w[n - 1]:F1}");
             }
+
+            if (_bucketSeconds[0] + _bucketSeconds[1] > 0)
+            {
+                // Percent of each second the render thread was idle / waiting on fences / inside queue submit,
+                // averaged over fast (>=45 fps) and slow (<45 fps) seconds. Fence waits per second in the last column.
+                string Line(int b) => _bucketSeconds[b] == 0
+                    ? "none"
+                    : $"{_bucketSeconds[b]}s idle {_bucketIdle[b] / _bucketSeconds[b]:F0}% fence {_bucketFence[b] / _bucketSeconds[b]:F0}% submit {_bucketSubmit[b] / _bucketSeconds[b]:F0}% fenceWaits/s {_bucketFenceCount[b] / _bucketSeconds[b]:F0}";
+
+                Logger.Notice.PrintMsg(LogClass.Gpu,
+                    $"[Candela][bound] fast: {Line(0)} | slow: {Line(1)} | longest slow run {_longestSlowRun}s");
+            }
+
+            Array.Clear(_bucketIdle);
+            Array.Clear(_bucketFence);
+            Array.Clear(_bucketSubmit);
+            Array.Clear(_bucketFenceCount);
+            Array.Clear(_bucketSeconds);
+            _longestSlowRun = 0;
 
             _count = 0;
             _over33 = 0;
