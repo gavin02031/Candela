@@ -1,6 +1,6 @@
 //
 //  MetalFxBridge.swift
-//  MeloNX
+//  Candela
 //
 
 import Foundation
