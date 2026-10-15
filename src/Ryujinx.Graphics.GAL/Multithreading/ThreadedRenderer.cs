@@ -121,7 +121,9 @@ namespace Ryujinx.Graphics.GAL.Multithreading
 
             while (_running)
             {
+                long idleStart = System.Diagnostics.Stopwatch.GetTimestamp();
                 _galWorkAvailable.Wait();
+                CandelaPerf.AddRenderIdle(System.Diagnostics.Stopwatch.GetTimestamp() - idleStart);
                 _galWorkAvailable.Reset();
 
                 if (Volatile.Read(ref _interruptAction) != null)
