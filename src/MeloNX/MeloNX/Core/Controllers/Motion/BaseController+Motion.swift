@@ -1,6 +1,6 @@
 //
 //  BaseController+Motion.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 16/11/2025.
 //
