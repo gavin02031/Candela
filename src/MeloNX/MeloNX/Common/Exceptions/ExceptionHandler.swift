@@ -1,6 +1,6 @@
 //
 //  ExceptionHandler.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 29/8/2026.
 //
