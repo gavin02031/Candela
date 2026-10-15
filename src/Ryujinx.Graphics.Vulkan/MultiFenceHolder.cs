@@ -198,6 +198,7 @@ namespace Ryujinx.Graphics.Vulkan
             }
 
             bool signaled = true;
+            long waitStart = System.Diagnostics.Stopwatch.GetTimestamp();
 
             try
             {
@@ -212,6 +213,8 @@ namespace Ryujinx.Graphics.Vulkan
             }
             finally
             {
+                Ryujinx.Graphics.GAL.CandelaPerf.AddFenceWait(System.Diagnostics.Stopwatch.GetTimestamp() - waitStart);
+
                 for (int i = 0; i < fenceCount; i++)
                 {
                     fenceHolders[i].PutLock();
