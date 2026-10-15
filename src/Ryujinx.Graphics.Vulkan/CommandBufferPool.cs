@@ -309,10 +309,14 @@ namespace Ryujinx.Graphics.Vulkan
                             PSignalSemaphores = pSignalSemaphores,
                         };
 
+                        long submitStart = System.Diagnostics.Stopwatch.GetTimestamp();
+
                         lock (_queueLock)
                         {
                             _api.QueueSubmit(_queue, 1, in sInfo, entry.Fence.GetUnsafe()).ThrowOnError();
                         }
+
+                        Ryujinx.Graphics.GAL.CandelaPerf.AddSubmit(System.Diagnostics.Stopwatch.GetTimestamp() - submitStart);
                     }
                 }
 
