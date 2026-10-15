@@ -1,6 +1,6 @@
 //
 //  KeyboardConfigView.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 23/6/2026.
 //
