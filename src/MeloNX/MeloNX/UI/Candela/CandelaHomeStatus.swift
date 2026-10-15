@@ -62,7 +62,20 @@ struct CandelaStatusPill: View {
     }
 }
 
+/// Press feedback for the big cards: a small, quick scale so taps feel physical without a heavy animation.
+struct CandelaPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 /// Big card for the most recent game, or a quiet placeholder when there is none.
+/// Layout: art on the left, a small "Jump back in" label, the game title as the main line,
+/// then last-played time and a Resume button stacked underneath. Stacking gives the title the
+/// full row width, so nothing shrinks or truncates next to the button.
 struct CandelaJumpCard: View {
     @Environment(\.colorScheme) private var scheme
     let game: GameInfo?
@@ -75,53 +88,73 @@ struct CandelaJumpCard: View {
         Button {
             if let game { onPlay(game) }
         } label: {
-            HStack(spacing: 14) {
+            HStack(spacing: 16) {
                 Group {
                     if let game {
-                        CandelaArtView(game: game)
+                        CandelaArtView(game: game, cornerRadius: 20)
                             .aspectRatio(1, contentMode: .fit)
                     } else {
                         Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 28, weight: .semibold))
+                            .font(.system(size: 30, weight: .semibold))
                             .foregroundColor(p.rose)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .background(p.roseSoft.opacity(0.35))
                     }
                 }
-                .frame(width: 84, height: 84)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Jump back in")
-                        .font(.system(.title3, design: .rounded).weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7).layoutPriority(1)
-                        .foregroundColor(p.ink)
+                .frame(width: 104, height: 104)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("JUMP BACK IN")
+                        .font(.system(.caption2, design: .rounded).weight(.heavy))
+                        .tracking(1.2)
+                        .lineLimit(1)
+                        .foregroundColor(p.rose)
                     Text(game?.titleName ?? "No recent game")
-                        .font(.subheadline.weight(.medium)).minimumScaleFactor(0.85)
-                        .foregroundColor(p.inkSoft)
+                        .font(.system(.title3, design: .rounded).weight(.bold))
+                        .foregroundColor(p.ink)
                         .lineLimit(2)
+                        .minimumScaleFactor(0.85)
                         .multilineTextAlignment(.leading)
                     if let lastPlayed {
-                        Text("Last played \(lastPlayed.formatted(.relative(presentation: .named)))")
-                            .font(.caption).lineLimit(1).minimumScaleFactor(0.75)
-                            .foregroundColor(p.inkSoft.opacity(0.85))
+                        Text("Played \(lastPlayed.formatted(.relative(presentation: .named)))")
+                            .font(.caption)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .foregroundColor(p.inkSoft.opacity(0.9))
+                    }
+                    if game != nil {
+                        HStack(spacing: 6) {
+                            Image(systemName: "play.fill")
+                            Text("Resume")
+                        }
+                        .font(.system(.subheadline, design: .rounded).weight(.heavy))
+                        .lineLimit(1)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 36)
+                        .background(p.accentGradient, in: Capsule())
+                        .padding(.top, 6)
                     }
                 }
-                Spacer()
-                if game != nil {
-                    HStack(spacing: 6) {
-                        Image(systemName: "play.fill")
-                        Text("Resume")
-                    }
-                    .font(.system(.subheadline, design: .rounded).weight(.heavy)).lineLimit(1).minimumScaleFactor(0.85).layoutPriority(2)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 11)
-                    .background(p.accentGradient, in: Capsule())
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(14)
             .candelaSurface(radius: 26)
+            .overlay {
+                // Soft wash of the game's own art behind the card, so each game tints its card.
+                if let game {
+                    CandelaArtView(game: game, cornerRadius: 26)
+                        .blur(radius: 28)
+                        .opacity(0.12)
+                        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                        .allowsHitTesting(false)
+                }
+            }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CandelaPressStyle())
         .disabled(game == nil)
+        .accessibilityLabel(game.map { "Resume \($0.titleName)" } ?? "No recent game")
     }
 }
