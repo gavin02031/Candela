@@ -418,6 +418,15 @@ namespace Ryujinx.Graphics.Vulkan
 
             if (Width >= 256 && Height >= 256) CandelaProbe.Note("framebuffer", $"{Width}x{Height} attachments={AttachmentsCount} depth={(_depthStencil != null)}");
 
+            if (Width >= 256 && Height >= 256)
+            {
+                // Fog diagnostic: attachment sizes and formats, so a mismatched or stale depth/color target shows up in the log.
+                TextureView c0 = _colors != null && _colors.Length > 0 ? _colors[0] : null;
+                string color = c0 != null ? $"{c0.Info.Format} {c0.Width}x{c0.Height} samples={c0.Info.Samples}" : "none";
+                string depth = _depthStencil != null ? $"{_depthStencil.Info.Format} {_depthStencil.Width}x{_depthStencil.Height}" : "none";
+                CandelaProbe.Note("fb-attach", $"fb {Width}x{Height} color0 {color} depth {depth}");
+            }
+
             api.CreateFramebuffer(_device, in framebufferCreateInfo, null, out Framebuffer framebuffer).ThrowOnError();
             return new Auto<DisposableFramebuffer>(new DisposableFramebuffer(api, _device, framebuffer), null, _attachments[..AttachmentsCount]);
         }
