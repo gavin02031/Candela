@@ -1,6 +1,6 @@
 //
 //  LabeledRow.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 8/5/2026.
 //
