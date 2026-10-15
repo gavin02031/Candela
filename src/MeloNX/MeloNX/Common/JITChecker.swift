@@ -1,6 +1,6 @@
 //
 //  IsJITEnabled.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 10/02/2025.
 //
