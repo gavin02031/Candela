@@ -1,6 +1,6 @@
 //
 //  ThumbstickType.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 19/10/2025.
 //
