@@ -42,7 +42,8 @@ struct InGameConfigView: View {
     
     var body: some View {
         HStack(spacing: 0) {
-            homeButton
+            // The exit control now lives in CandelaLeaveButton, drawn above the on-screen controller.
+            Color.clear.frame(width: 60, height: 40)
             gameMenu
         }
         .onReceive(NotificationCenter.default.publisher(for: .candelaLeaveRequest)) { _ in leaveGame() }
