@@ -1,6 +1,6 @@
 //
 //  Ryujinx.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 13/4/2026.
 //
