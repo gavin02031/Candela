@@ -1,6 +1,6 @@
 //
 //  UpdateManagerSheet.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 20/5/2026.
 //
