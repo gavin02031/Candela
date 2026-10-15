@@ -1,6 +1,6 @@
 //
 //  3DCardListView.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 24/8/2026.
 //
