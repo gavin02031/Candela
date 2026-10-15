@@ -1,6 +1,6 @@
 //
 //  KBController.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 10/6/2026.
 //
