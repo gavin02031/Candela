@@ -1,6 +1,6 @@
 //
 //  PerformancePresets.swift
-//  MeloNX
+//  Candela
 //
 //  Built-in starting settings for a few demanding titles on iPhone-class hardware.
 //  Used only when the user has NOT saved per-game settings for that title.
