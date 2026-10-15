@@ -145,9 +145,13 @@ struct CandelaJumpCard: View {
             .overlay {
                 // Soft wash of the game's own art behind the card, so each game tints its card.
                 if let game {
-                    CandelaArtView(game: game, cornerRadius: 26)
-                        .blur(radius: 28)
-                        .opacity(0.12)
+                    // Color.clear pins the wash to the card's own size; the art can no longer stretch the layout.
+                    Color.clear
+                        .overlay {
+                            CandelaArtView(game: game, cornerRadius: 0)
+                                .blur(radius: 28)
+                                .opacity(0.12)
+                        }
                         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                         .allowsHitTesting(false)
                 }
