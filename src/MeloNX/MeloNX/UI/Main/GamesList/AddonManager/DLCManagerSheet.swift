@@ -1,6 +1,6 @@
 //
 //  DLCManagerSheet.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 1/6/2026.
 //
