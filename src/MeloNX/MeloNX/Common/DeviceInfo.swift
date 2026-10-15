@@ -1,6 +1,6 @@
 //
 //  DeviceInfo.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 23/4/2026.
 //
