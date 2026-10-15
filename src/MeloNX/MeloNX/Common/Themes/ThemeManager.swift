@@ -1,6 +1,6 @@
 //
 //  ThemeManager.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 8/6/2026.
 //
