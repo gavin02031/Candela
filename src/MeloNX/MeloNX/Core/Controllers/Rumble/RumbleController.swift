@@ -1,6 +1,6 @@
 //
 //  RumbleController.swift
-//  MeloNX
+//  Candela
 //
 //  Created by MediaMoots on 2025/5/24.
 //
