@@ -41,6 +41,7 @@ struct EmulationView: View {
         Group {
             emulationView()
                 .overlay(alignment: .top) { CandelaThermalPill() }
+                .overlay(alignment: .topLeading) { CandelaLeaveButton() }
                 .onAppear() {
                     statisticsHandler.registerPush()
                     
