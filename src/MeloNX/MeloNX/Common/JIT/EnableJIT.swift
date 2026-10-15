@@ -1,6 +1,6 @@
 //
 //  EnableJIT.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 3/5/2026.
 //
