@@ -1,6 +1,6 @@
 //
 //  LaunchGameIntent.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Stossy11 on 15/7/2026.
 //
