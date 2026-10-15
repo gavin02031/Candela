@@ -1,6 +1,6 @@
 //
 //  GameInfoSheet.swift
-//  MeloNX
+//  Candela
 //
 //  Created by Bella on 08/02/2025.
 //
