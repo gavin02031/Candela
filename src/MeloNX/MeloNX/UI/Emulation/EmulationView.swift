@@ -18,6 +18,8 @@ struct EmulationView: View {
     @StateObject var controllerManager: ControllerManager = .shared
     @StateObject var statisticsHandler: StatisticsHandler = .init()
     @StateObject private var nativeSettingsManager: NativeSettingsManager = .shared
+    @StateObject private var libraryStats = CandelaLibraryStore.shared
+    @Environment(\.scenePhase) private var scenePhase
     private var air = Air.shared
     
     @State var isConnected = false
@@ -43,12 +45,19 @@ struct EmulationView: View {
                 .overlay(alignment: .top) { CandelaThermalPill() }
                 .overlay(alignment: .topLeading) { CandelaLeaveButton() }
                 .onAppear() {
+                    libraryStats.startSession(game)
+                    if scenePhase != .active { libraryStats.pauseSession() }
                     statisticsHandler.registerPush()
                     
                     self.isConnected = Air.shared.connected
                     Air.shared.connectionCallbacks.append { self.isConnected = $0 }
                     
                     Air.play(AnyView(emulationView(true)))
+                }
+                .onDisappear { libraryStats.endSession() }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { libraryStats.resumeSession() }
+                    else { libraryStats.pauseSession() }
                 }
                 .if(!statisticsHandler.started) { view in
                     view
