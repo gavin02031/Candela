@@ -134,7 +134,7 @@ struct CandelaGameGateView: View {
             }
             .onAppear { cacheBytes = Self.folderSize(URL.cacheFolderURL(for: game)) }
             .sheet(isPresented: $showAchievements) {
-                NavigationStack { CandelaAchievementsPage(gameName: game.titleName) }
+                NavigationStack { CandelaAchievementsPage(gameName: game.titleName, gameID: game.titleId) }
             }
             .sheet(isPresented: $showMods) { ModsManagerSheet(game: game) }
             .sheet(isPresented: $showDLC) { DLCManagerSheet(game: game) }
