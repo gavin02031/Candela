@@ -6,7 +6,7 @@ import SwiftUI
 extension SettingsView {
     var candelaHub: some View {
         NavigationStack {
-            CandelaHubScreen(
+            CandelaSettingsDashboard(
                 config: config,
                 isJIT: ryujinxController.isJITEnabled,
                 destination: { AnyView($0.sectionsView(for: self)) }
@@ -365,5 +365,365 @@ struct CandelaHubPage: View {
                 .padding(.bottom, 18)
         }
         .navigationBarHidden(true)
+    }
+}
+
+
+// MARK: - Candela V4 / personalized settings dashboard
+//
+// A console-style landing screen influenced by visuals-first handheld frontends.
+// Existing Graphics/Input/System/Misc/Advanced forms remain available and unchanged.
+private struct CandelaSettingsDashboard: View {
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var thermal = CandelaThermal.shared
+    @AppStorage("candela.theme.style.v1") private var themeChoice = CandelaThemeStyle.pastelDream.rawValue
+
+    let config: Binding<Options>
+    let isJIT: Bool
+    let destination: (SettingsView.SettingsCategory) -> AnyView
+
+    private var palette: CandelaPalette { CandelaPalette(dark: scheme == .dark) }
+    private var selectedStyle: CandelaThemeStyle {
+        CandelaThemeStyle(rawValue: themeChoice) ?? .pastelDream
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                titleBar
+                themeFeature
+                tools
+                quickPerformance
+                systemEssentials
+                advanced
+                Text("Candela \(CandelaVersion.display)  ·  AGPL-3.0-or-later")
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundColor(palette.inkSoft)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 20)
+            .padding(.bottom, 45)
+        }
+        .background(CandelaBackdrop(dark: scheme == .dark).ignoresSafeArea())
+        .navigationBarHidden(true)
+        .tint(palette.rose)
+    }
+
+    private var titleBar: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                CandelaMark(size: 39, dark: scheme == .dark)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Your setup")
+                        .font(.system(size: 30, weight: .heavy, design: .rounded))
+                        .foregroundColor(palette.ink)
+                    Text("Make every session feel yours.")
+                        .font(.system(size: 13))
+                        .foregroundColor(palette.inkSoft)
+                }
+                Spacer()
+            }
+            HStack(spacing: 9) {
+                Label(isJIT ? "JIT ready" : "JIT unavailable",
+                      systemImage: isJIT ? "checkmark.circle.fill" : "exclamationmark.circle")
+                    .foregroundColor(isJIT ? palette.good : palette.warn)
+                Spacer()
+                Text("iPhone · Candela")
+                    .foregroundColor(palette.inkSoft)
+            }
+            .font(.system(size: 12, weight: .bold, design: .rounded))
+            .padding(.horizontal, 15)
+            .frame(height: 37)
+            .background(palette.card.opacity(0.71), in: Capsule())
+            .overlay(Capsule().strokeBorder(palette.cardStroke, lineWidth: 1))
+        }
+    }
+
+    private var themeFeature: some View {
+        NavigationLink {
+            CandelaThemeGallery()
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 21, style: .continuous)
+                        .fill(LinearGradient(colors: selectedStyle.colors,
+                                             startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 106, height: 107)
+                    CandelaMark(size: 52, dark: scheme == .dark)
+                    Circle()
+                        .fill(.white.opacity(0.68))
+                        .frame(width: 15, height: 15)
+                        .offset(x: 35, y: -32)
+                }
+                .overlay(RoundedRectangle(cornerRadius: 21)
+                    .strokeBorder(.white.opacity(0.72), lineWidth: 1))
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("YOUR LOOK")
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .tracking(1.55)
+                        .foregroundColor(palette.rose)
+                    Text(selectedStyle.title)
+                        .font(.system(size: 21, weight: .heavy, design: .rounded))
+                        .foregroundColor(palette.ink)
+                        .lineLimit(2)
+                    Text("Themes, colors & glow")
+                        .font(.system(size: 12))
+                        .foregroundColor(palette.inkSoft)
+                    HStack(spacing: 5) {
+                        Text("Customize")
+                        Image(systemName: "arrow.up.right")
+                    }
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(palette.rose)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 27, style: .continuous)
+                    .fill(palette.card.opacity(0.88))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 27, style: .continuous)
+                            .fill(LinearGradient(colors: [
+                                palette.roseSoft.opacity(0.16),
+                                palette.skySoft.opacity(0.28)
+                            ], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    }
+            }
+            .overlay(RoundedRectangle(cornerRadius: 27)
+                .strokeBorder(palette.cardStroke.opacity(0.9), lineWidth: 1))
+        }
+        .buttonStyle(CandelaPressStyle())
+        .accessibilityLabel("Customize Candela theme, selected \(selectedStyle.title)")
+    }
+
+    private var tools: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Your controls", subtitle: "Quick access to how Candela plays")
+            NavigationLink {
+                CandelaTouchStudioHub()
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "hand.draw.fill")
+                        .font(.system(size: 23, weight: .medium))
+                        .foregroundColor(palette.rose)
+                        .frame(width: 48, height: 48)
+                        .background(palette.roseSoft.opacity(0.45), in: RoundedRectangle(cornerRadius: 15))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Touch Studio")
+                            .font(.system(.headline, design: .rounded).weight(.bold))
+                            .foregroundColor(palette.ink)
+                        Text("Per-game layouts & glass controls")
+                            .font(.system(size: 12))
+                            .foregroundColor(palette.inkSoft)
+                    }
+                    Spacer(minLength: 5)
+                    Image(systemName: "arrow.up.right")
+                        .foregroundColor(palette.inkSoft)
+                }
+                .padding(14)
+                .candelaSurface(radius: 22)
+            }
+            .buttonStyle(CandelaPressStyle())
+
+            HStack(spacing: 11) {
+                settingDestination(.input, title: "Gamepads", subtitle: "Buttons & input",
+                                   icon: "gamecontroller.fill", tint: palette.sky)
+                settingDestination(.misc, title: "Library", subtitle: "Files & services",
+                                   icon: "square.stack.3d.up.fill", tint: palette.rose)
+            }
+        }
+    }
+
+    private var quickPerformance: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                sectionHeader("How games run", subtitle: "A quick tune-up for your iPhone")
+                Spacer(minLength: 8)
+                NavigationLink {
+                    CandelaHubPage(title: "Graphics & performance", content: destination(.graphics))
+                } label: {
+                    Text("All options")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .foregroundColor(palette.rose)
+            }
+            HStack(spacing: 9) {
+                ForEach(CandelaPlayStyle.allCases) { choice in
+                    performanceTile(choice)
+                }
+            }
+            Text("Sets the default resolution and enables asynchronous shaders. Saved per-game settings still take priority.")
+                .font(.system(size: 11))
+                .foregroundColor(palette.inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    private func performanceTile(_ choice: CandelaPlayStyle) -> some View {
+        let active = abs(config.wrappedValue.resScale - choice.scale) < 0.01
+        return Button {
+            var options = config.wrappedValue
+            options.resScale = choice.scale
+            options.enableAsyncShaderCompilation = true
+            config.wrappedValue = options
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: choice.icon)
+                    .font(.system(size: 21, weight: .medium))
+                Text(choice.rawValue)
+                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                Text(choice.blurb)
+                    .font(.system(size: 10))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .opacity(0.83)
+            }
+            .foregroundColor(palette.ink)
+            .frame(maxWidth: .infinity, minHeight: 112)
+            .padding(.horizontal, 3)
+            .background {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(active
+                        ? AnyShapeStyle(LinearGradient(colors: [
+                            palette.roseSoft.opacity(0.91), palette.skySoft.opacity(0.74)
+                        ], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        : AnyShapeStyle(palette.card.opacity(0.81)))
+            }
+            .overlay(RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(active ? palette.rose.opacity(0.65) : palette.cardStroke, lineWidth: active ? 1.6 : 1))
+        }
+        .buttonStyle(CandelaPressStyle())
+        .accessibilityLabel("\(choice.rawValue) performance preset")
+        .accessibilityAddTraits(active ? [.isSelected] : [])
+    }
+
+    private var systemEssentials: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("Everyday essentials", subtitle: "Things you change most")
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Image(systemName: "thermometer.medium")
+                        .font(.system(size: 19))
+                        .foregroundColor(palette.rose)
+                        .frame(width: 38, height: 38)
+                        .background(palette.roseSoft.opacity(0.34), in: RoundedRectangle(cornerRadius: 12))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Thermal governor")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(palette.ink)
+                        Text("Reduce next-launch heat · \(thermal.step) of 2 steps")
+                            .font(.system(size: 11))
+                            .foregroundColor(palette.inkSoft)
+                    }
+                    Spacer(minLength: 7)
+                    Toggle("Thermal governor", isOn: Binding(
+                        get: { thermal.enabled },
+                        set: { thermal.enabled = $0 }
+                    ))
+                    .labelsHidden()
+                    .tint(palette.rose)
+                }
+                .padding(14)
+                Divider().padding(.leading, 62)
+                HStack(spacing: 12) {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.system(size: 19))
+                        .foregroundColor(palette.sky)
+                        .frame(width: 38, height: 38)
+                        .background(palette.skySoft.opacity(0.31), in: RoundedRectangle(cornerRadius: 12))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Game volume")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(palette.ink)
+                        Text("Your default game audio")
+                            .font(.system(size: 11))
+                            .foregroundColor(palette.inkSoft)
+                    }
+                    Spacer(minLength: 7)
+                    Slider(value: Binding(
+                        get: { Double(config.wrappedValue.audioVolume) },
+                        set: { config.wrappedValue.audioVolume = Float($0) }
+                    ), in: 0...1)
+                    .frame(width: 112)
+                    .tint(palette.rose)
+                }
+                .padding(14)
+            }
+            .background(palette.card.opacity(0.84), in: RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(palette.cardStroke, lineWidth: 1))
+        }
+    }
+
+    private var advanced: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            sectionHeader("Under the hood", subtitle: "Everything is still here when you need it")
+            HStack(spacing: 11) {
+                settingDestination(.system, title: "System", subtitle: "Audio & console", icon: "cpu", tint: palette.sky)
+                settingDestination(.advanced, title: "Advanced", subtitle: "Logs & diagnostics", icon: "wrench.and.screwdriver.fill", tint: palette.rose)
+            }
+            Text("Advanced features are unchanged. No emulator or signing settings were removed.")
+                .font(.system(size: 11))
+                .foregroundColor(palette.inkSoft)
+                .padding(.horizontal, 3)
+        }
+    }
+
+    private func settingDestination(_ category: SettingsView.SettingsCategory,
+                                    title: String,
+                                    subtitle: String,
+                                    icon: String,
+                                    tint: Color) -> some View {
+        NavigationLink {
+            CandelaHubPage(title: title, content: destination(category))
+        } label: {
+            VStack(alignment: .leading, spacing: 9) {
+                Image(systemName: icon)
+                    .font(.system(size: 21, weight: .semibold))
+                    .foregroundColor(tint)
+                    .frame(width: 40, height: 40)
+                    .background(tint.opacity(0.13), in: RoundedRectangle(cornerRadius: 13))
+                Text(title)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(palette.ink)
+                HStack {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .foregroundColor(palette.inkSoft)
+                    Spacer(minLength: 2)
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(tint)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(13)
+            .frame(height: 129)
+            .background(palette.card.opacity(0.82), in: RoundedRectangle(cornerRadius: 22))
+            .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(palette.cardStroke, lineWidth: 1))
+        }
+        .buttonStyle(CandelaPressStyle())
+    }
+
+    private func sectionHeader(_ title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .foregroundColor(palette.ink)
+            Text(subtitle)
+                .font(.system(size: 12))
+                .foregroundColor(palette.inkSoft)
+        }
     }
 }
