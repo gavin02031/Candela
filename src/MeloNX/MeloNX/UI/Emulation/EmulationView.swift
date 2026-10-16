@@ -70,7 +70,11 @@ struct EmulationView: View {
                                     .scaleEffect(1.3)
                                 Text("Leaving game…")
                                     .font(.system(.headline, design: .rounded).weight(.bold))
-                                Text("Finishing emulator cleanup")
+                                Text(ryujinxController.shutdownTakingLong
+                                     ? "Shutdown is taking longer than expected. Please share the latest Candela log."
+                                     : "Finishing emulator cleanup")
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 24)
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.76))
                             }
