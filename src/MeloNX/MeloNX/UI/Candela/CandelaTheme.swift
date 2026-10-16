@@ -11,8 +11,11 @@ import SwiftUI
 
 // MARK: - Persistent Candela theme selection
 enum CandelaThemeStyle: String, CaseIterable, Identifiable {
-    case pastelDream, classicBlush, arcticGlass, sunsetPop, obsidianEmber
+    case pastelDream, classicBlush, arcticGlass, sunsetPop, obsidianEmber, mintArcade, midnightNeon
+
     var id: String { rawValue }
+    var isDark: Bool { self == .obsidianEmber || self == .midnightNeon }
+
     var title: String {
         switch self {
         case .pastelDream: return "Pastel Dream"
@@ -20,8 +23,48 @@ enum CandelaThemeStyle: String, CaseIterable, Identifiable {
         case .arcticGlass: return "Arctic Glass"
         case .sunsetPop: return "Sunset Pop"
         case .obsidianEmber: return "Obsidian Ember"
+        case .mintArcade: return "Mint Arcade"
+        case .midnightNeon: return "Midnight Neon"
         }
     }
+
+    var subtitle: String {
+        switch self {
+        case .pastelDream: return "Lavender, mint and soft pink"
+        case .classicBlush: return "The original Candela pink"
+        case .arcticGlass: return "Cool blue and icy glass"
+        case .sunsetPop: return "Peach, coral and lilac"
+        case .obsidianEmber: return "Warm copper on charcoal"
+        case .mintArcade: return "Fresh mint and sea glass"
+        case .midnightNeon: return "Violet and electric blue"
+        }
+    }
+
+    /// Semantic accent tokens, not the low-contrast colors in the preview background.
+    var accentHex: String {
+        switch self {
+        case .pastelDream: return "#9360A2"
+        case .classicBlush: return "#B4527C"
+        case .arcticGlass: return "#417C9E"
+        case .sunsetPop: return "#AC6474"
+        case .obsidianEmber: return "#FFC18C"
+        case .mintArcade: return "#337F77"
+        case .midnightNeon: return "#D1A1FF"
+        }
+    }
+
+    var secondaryAccentHex: String {
+        switch self {
+        case .pastelDream: return "#5D9EA2"
+        case .classicBlush: return "#6F97D6"
+        case .arcticGlass: return "#6CA9DD"
+        case .sunsetPop: return "#8B7AC8"
+        case .obsidianEmber: return "#E5A77D"
+        case .mintArcade: return "#609AC9"
+        case .midnightNeon: return "#82C6FF"
+        }
+    }
+
     var colors: [Color] {
         switch self {
         case .pastelDream: return [Color(candelaHex: 0xE9D3FA), Color(candelaHex: 0xC8E9DD), Color(candelaHex: 0xF7D5E8)]
@@ -29,13 +72,16 @@ enum CandelaThemeStyle: String, CaseIterable, Identifiable {
         case .arcticGlass: return [Color(candelaHex: 0xD2EDFF), Color(candelaHex: 0xB2DAF2)]
         case .sunsetPop: return [Color(candelaHex: 0xF9BCA9), Color(candelaHex: 0xD8C6F7)]
         case .obsidianEmber: return [Color(candelaHex: 0x30243B), Color(candelaHex: 0xDDA787)]
+        case .mintArcade: return [Color(candelaHex: 0xCAF6E6), Color(candelaHex: 0xB6DDF7), Color(candelaHex: 0xF3EBFF)]
+        case .midnightNeon: return [Color(candelaHex: 0x18122D), Color(candelaHex: 0x733FBC), Color(candelaHex: 0x387EDB)]
         }
     }
 }
 
 // MARK: - Palette
 
-/// Colour tokens. `dark` picks the Dusk variant; light is Blush.
+/// Shared semantic tokens used by the Home, Library, Settings, Music and game pages.
+/// Palette and UIKit/SwiftUI interface style must both follow the same saved preset.
 struct CandelaPalette {
     let dark: Bool
     private var style: CandelaThemeStyle {
@@ -45,43 +91,70 @@ struct CandelaPalette {
     private var first: Color { style.colors[0] }
     private var second: Color { style.colors[1] }
 
-    // Brand
-    // Keep subtle pastel fills for backgrounds but use deeper accents for readable text/icons.
-    private var strongAccent: Color {
+    // Accent colors are deliberately stronger than decorative background colors.
+    private var strongAccent: Color { Color(hex: style.accentHex) }
+    var rose: Color {
+        if isClassic { return dark ? Color(candelaHex: 0xF2A9C4) : Color(candelaHex: 0xC9648C) }
+        return strongAccent
+    }
+    var primaryButtonInk: Color { dark ? Color(candelaHex: 0x221C31) : Color(candelaHex: 0x352941) }
+    var roseSoft: Color {
+        dark ? rose.opacity(0.68) : (isClassic ? Color(candelaHex: 0xF4C6D7) : first.opacity(0.82))
+    }
+    var sky: Color { Color(hex: style.secondaryAccentHex) }
+    var skySoft: Color { dark ? sky.opacity(0.67) : second.opacity(0.78) }
+
+    // Entire background, not only button accents, changes when switching themes.
+    var backgroundTop: Color {
         switch style {
-        case .pastelDream: return Color(candelaHex: 0x9360A2)
-        case .classicBlush: return Color(candelaHex: 0xB4527C)
-        case .arcticGlass: return Color(candelaHex: 0x417C9E)
-        case .sunsetPop: return Color(candelaHex: 0xAC6474)
-        case .obsidianEmber: return Color(candelaHex: 0x9C6944)
+        case .pastelDream: return Color(candelaHex: 0xFCF7FF)
+        case .classicBlush: return Color(candelaHex: 0xFCF2F6)
+        case .arcticGlass: return Color(candelaHex: 0xF1FAFF)
+        case .sunsetPop: return Color(candelaHex: 0xFFF3E9)
+        case .obsidianEmber: return Color(candelaHex: 0x241A27)
+        case .mintArcade: return Color(candelaHex: 0xF1FFF7)
+        case .midnightNeon: return Color(candelaHex: 0x15152D)
         }
     }
-    var rose: Color { isClassic ? (dark ? Color(candelaHex: 0xF2A9C4) : Color(candelaHex: 0xC9648C)) : (dark ? first.opacity(0.95) : strongAccent) }
-    var primaryButtonInk: Color {
-        style == .obsidianEmber ? .white : Color(candelaHex: 0x352941)
+    var backgroundBottom: Color {
+        switch style {
+        case .pastelDream: return Color(candelaHex: 0xEAF8F3)
+        case .classicBlush: return Color(candelaHex: 0xEAF1FB)
+        case .arcticGlass: return Color(candelaHex: 0xDCF0FF)
+        case .sunsetPop: return Color(candelaHex: 0xF6E6FB)
+        case .obsidianEmber: return Color(candelaHex: 0x151A21)
+        case .mintArcade: return Color(candelaHex: 0xE4F4FF)
+        case .midnightNeon: return Color(candelaHex: 0x101C37)
+        }
     }
-    var roseSoft: Color { isClassic ? (dark ? Color(candelaHex: 0xF7C6D8) : Color(candelaHex: 0xF4C6D7)) : first.opacity(0.72) }
-    var sky: Color { isClassic ? (dark ? Color(candelaHex: 0x93B8F0) : Color(candelaHex: 0x6F97D6)) : second }
-    var skySoft: Color { isClassic ? (dark ? Color(candelaHex: 0xB5CEF6) : Color(candelaHex: 0xC6D8F3)) : second.opacity(0.75) }
+    var card: Color {
+        if style == .obsidianEmber { return Color(candelaHex: 0x342A32) }
+        if style == .midnightNeon { return Color(candelaHex: 0x222542) }
+        return Color.white
+    }
+    var cardStroke: Color {
+        if style == .obsidianEmber { return Color(candelaHex: 0x584451) }
+        if style == .midnightNeon { return Color(candelaHex: 0x44446A) }
+        if style == .arcticGlass { return Color(candelaHex: 0xCCDFEF) }
+        if style == .mintArcade { return Color(candelaHex: 0xCEE8E0) }
+        return Color(candelaHex: 0xF0DCE5)
+    }
+    var field: Color {
+        dark ? Color(candelaHex: 0x252231) : backgroundBottom.opacity(0.80)
+    }
 
-    // Surfaces
-    var backgroundTop: Color { isClassic ? (dark ? Color(candelaHex: 0x1D1826) : Color(candelaHex: 0xFCF2F6)) : (dark ? Color(candelaHex: 0x241C32) : Color(candelaHex: 0xFCF7FF)) }
-    var backgroundBottom: Color { isClassic ? (dark ? Color(candelaHex: 0x141A28) : Color(candelaHex: 0xEAF1FB)) : (dark ? Color(candelaHex: 0x17252B) : Color(candelaHex: 0xEAF8F3)) }
-    var card: Color { dark ? Color(candelaHex: 0x2A2436) : Color.white }
-    var cardStroke: Color { dark ? Color(candelaHex: 0x3C3550) : Color(candelaHex: 0xF0DCE5) }
-    var field: Color { dark ? Color(candelaHex: 0x241F30) : Color(candelaHex: 0xF6EEF4) }
+    var ink: Color { dark ? Color(candelaHex: 0xF7F0FC) : Color(candelaHex: 0x3A3450) }
+    var inkSoft: Color { dark ? Color(candelaHex: 0xC2B8D0) : Color(candelaHex: 0x706981) }
 
-    // Text
-    var ink: Color { dark ? Color(candelaHex: 0xF4EEF8) : Color(candelaHex: 0x3A3450) }
-    var inkSoft: Color { dark ? Color(candelaHex: 0xB4ABC6) : Color(candelaHex: 0x7A7290) }
-
-    // Status. Muted so they sit with the pastels instead of shouting.
     var good: Color { dark ? Color(candelaHex: 0x8FD6B4) : Color(candelaHex: 0x3F9E7B) }
     var warn: Color { dark ? Color(candelaHex: 0xF2CB8F) : Color(candelaHex: 0xC98A3A) }
     var bad: Color { dark ? Color(candelaHex: 0xF2968F) : Color(candelaHex: 0xC5524D) }
 
     var accentGradient: LinearGradient {
-        LinearGradient(colors: isClassic ? [rose, sky] : style.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(
+            colors: dark ? [rose, sky] : (isClassic ? [rose, sky] : style.colors),
+            startPoint: .topLeading, endPoint: .bottomTrailing
+        )
     }
 }
 
