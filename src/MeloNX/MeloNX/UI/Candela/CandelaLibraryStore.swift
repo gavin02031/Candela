@@ -25,6 +25,7 @@ final class CandelaLibraryStore: ObservableObject {
 
     private var runningGameKey: String?
     private var activeSince: Date?
+    private var checkpointTimer: Timer?
 
     private var addedDateCache: [URL: Date] = [:]
 
@@ -68,6 +69,7 @@ final class CandelaLibraryStore: ObservableObject {
         let key = Self.key(for: game)
         if runningGameKey == key {
             if activeSince == nil { activeSince = Date() }
+            scheduleCheckpoint()
             return
         }
         endSession()
@@ -76,10 +78,35 @@ final class CandelaLibraryStore: ObservableObject {
         sessionCounts[key, default: 0] += 1
         UserDefaults.standard.set(sessionCounts, forKey: sessionsKey)
         markPlayed(game)
+        scheduleCheckpoint()
+    }
+
+    /// Save elapsed time every 30 seconds while a game is active. If the app is killed
+    /// mid-game (low memory, crash), the time played so far is already stored instead of lost.
+    private func scheduleCheckpoint() {
+        checkpointTimer?.invalidate()
+        let t = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+            self?.checkpoint()
+        }
+        RunLoop.main.add(t, forMode: .common)
+        checkpointTimer = t
+    }
+
+    private func checkpoint() {
+        guard let key = runningGameKey, let since = activeSince else { return }
+        let now = Date()
+        let elapsed = max(0, now.timeIntervalSince(since))
+        if elapsed.isFinite, elapsed > 0 {
+            playtimeSeconds[key, default: 0] += elapsed
+            UserDefaults.standard.set(playtimeSeconds, forKey: playtimeKey)
+        }
+        activeSince = now
     }
 
     /// Background/inactive time must not inflate playtime.
     func pauseSession() {
+        checkpointTimer?.invalidate()
+        checkpointTimer = nil
         guard let key = runningGameKey, let since = activeSince else { return }
         let elapsed = max(0, Date().timeIntervalSince(since))
         if elapsed.isFinite {
@@ -92,6 +119,7 @@ final class CandelaLibraryStore: ObservableObject {
     func resumeSession() {
         guard runningGameKey != nil, activeSince == nil else { return }
         activeSince = Date()
+        scheduleCheckpoint()
     }
 
     func endSession() {
