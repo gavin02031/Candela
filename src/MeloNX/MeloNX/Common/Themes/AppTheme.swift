@@ -110,11 +110,19 @@ struct AppTheme: Identifiable, Equatable, Codable {
 
 extension AppTheme {
 
-    static let allBuiltIn: [AppTheme] = [
-        .candelaBlush,
-        .candelaDusk,
-        .oled
-    ]
+    /// Modern Candela presets. Both appearance pickers use the exact same list.
+    static let allBuiltIn: [AppTheme] = CandelaThemeStyle.allCases.map { fromCandela($0) }
+
+    static func fromCandela(_ style: CandelaThemeStyle) -> AppTheme {
+        AppTheme(
+            id: style.rawValue,
+            name: style.title,
+            accentColorHex: style.accentHex,
+            accentSecondaryHex: style.secondaryAccentHex,
+            backgroundStyle: style.isDark ? .candelaDusk : .candelaBlush,
+            isDark: style.isDark
+        )
+    }
 
     /// Light pink and powder blue. The default.
     static let candelaBlush = AppTheme(
@@ -145,5 +153,5 @@ extension AppTheme {
         isDark: true
     )
 
-    static let defaultTheme = candelaBlush
+    static let defaultTheme = fromCandela(.pastelDream)
 }
