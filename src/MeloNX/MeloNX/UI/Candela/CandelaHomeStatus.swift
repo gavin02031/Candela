@@ -88,74 +88,84 @@ struct CandelaJumpCard: View {
         Button {
             if let game { onPlay(game) }
         } label: {
-            HStack(spacing: 16) {
-                Group {
-                    if let game {
-                        CandelaArtView(game: game, cornerRadius: 20)
-                            .aspectRatio(1, contentMode: .fit)
-                    } else {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 30, weight: .semibold))
-                            .foregroundColor(p.rose)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(p.roseSoft.opacity(0.35))
-                    }
-                }
-                .frame(width: 104, height: 104)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("JUMP BACK IN")
-                        .font(.system(.caption2, design: .rounded).weight(.heavy))
-                        .tracking(1.2)
-                        .lineLimit(1)
-                        .foregroundColor(p.rose)
-                    Text(game?.titleName ?? "No recent game")
-                        .font(.system(.title3, design: .rounded).weight(.bold))
-                        .foregroundColor(p.ink)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-                        .multilineTextAlignment(.leading)
-                    if let lastPlayed {
-                        Text("Played \(lastPlayed.formatted(.relative(presentation: .named)))")
-                            .font(.caption)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .foregroundColor(p.inkSoft.opacity(0.9))
-                    }
-                    if game != nil {
-                        HStack(spacing: 6) {
-                            Image(systemName: "play.fill")
-                            Text("Resume")
-                        }
-                        .font(.system(.subheadline, design: .rounded).weight(.heavy))
-                        .lineLimit(1)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 36)
-                        .background(p.accentGradient, in: Capsule())
-                        .padding(.top, 6)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(14)
-            .candelaSurface(radius: 26)
-            .overlay {
-                // Soft wash of the game's own art behind the card, so each game tints its card.
+            ZStack {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                p.card.opacity(0.95),
+                                p.roseSoft.opacity(scheme == .dark ? 0.18 : 0.44),
+                                p.skySoft.opacity(scheme == .dark ? 0.18 : 0.38)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                 if let game {
-                    // Color.clear pins the wash to the card's own size; the art can no longer stretch the layout.
-                    Color.clear
-                        .overlay {
-                            CandelaArtView(game: game, cornerRadius: 0)
-                                .blur(radius: 28)
-                                .opacity(0.12)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                    CandelaArtView(game: game, cornerRadius: 0)
+                        .blur(radius: 38)
+                        .opacity(scheme == .dark ? 0.13 : 0.10)
+                        .clipped()
                         .allowsHitTesting(false)
                 }
+                HStack(alignment: .center, spacing: 16) {
+                    Group {
+                        if let game {
+                            CandelaArtView(game: game, cornerRadius: 20)
+                        } else {
+                            Image(systemName: "play.rectangle.fill")
+                                .font(.system(size: 37))
+                                .foregroundColor(p.rose)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(p.roseSoft.opacity(0.4))
+                        }
+                    }
+                    .frame(width: 114, height: 136)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(color: .black.opacity(0.14), radius: 10, y: 5)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("JUMP BACK IN")
+                            .font(.system(size: 10, weight: .heavy, design: .rounded))
+                            .tracking(1.8)
+                            .foregroundColor(p.rose)
+                        Text(game?.titleName ?? "Your next adventure")
+                            .font(.system(.title3, design: .rounded).weight(.heavy))
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.83)
+                            .foregroundColor(p.ink)
+                            .multilineTextAlignment(.leading)
+                        if let lastPlayed {
+                            Text("Played \(lastPlayed.formatted(.relative(presentation: .named)))")
+                                .font(.caption)
+                                .foregroundColor(p.inkSoft)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        } else {
+                            Text(gameCount == 0 ? "Add your first game to begin" : "Choose a game to play")
+                                .font(.caption)
+                                .foregroundColor(p.inkSoft)
+                        }
+                        HStack(spacing: 7) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 11, weight: .heavy))
+                            Text(game == nil ? "Explore" : "Resume")
+                                .font(.system(.subheadline, design: .rounded).weight(.heavy))
+                        }
+                        .foregroundColor(Color(candelaHex: 0x3A3450))
+                        .frame(minWidth: 104, minHeight: 39)
+                        .background(p.accentGradient, in: Capsule())
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.8), lineWidth: 1))
+                        .padding(.top, 4)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(16)
             }
+            .frame(minHeight: 170)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 28).strokeBorder(p.cardStroke, lineWidth: 1.1))
+            .shadow(color: p.rose.opacity(scheme == .dark ? 0 : 0.14), radius: 18, y: 7)
         }
         .buttonStyle(CandelaPressStyle())
         .disabled(game == nil)
