@@ -231,11 +231,31 @@ namespace Ryujinx.Library
 
                     _chrono.Restart();
 
-                    if (Device.WaitFifo())
+                    // A stop can arrive while the GPU FIFO is waiting for CPU work.
+                    // Do not submit any more frames once shutdown has been requested.
+                    if (_gpuCancellationTokenSource.IsCancellationRequested || _isStopped)
+                    {
+                        break;
+                    }
+
+                    bool fifoReady = Device.WaitFifo();
+
+                    if (_gpuCancellationTokenSource.IsCancellationRequested || _isStopped)
+                    {
+                        Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] GPU FIFO returned after stop request.");
+                        break;
+                    }
+
+                    if (fifoReady)
                     {
                         Device.Statistics.RecordFifoStart();
                         Device.ProcessFrame();
                         Device.Statistics.RecordFifoEnd();
+                    }
+
+                    if (_gpuCancellationTokenSource.IsCancellationRequested || _isStopped)
+                    {
+                        break;
                     }
 
                     if (Device.PresentLoop(SwapBuffers))
