@@ -12,6 +12,10 @@ namespace Ryujinx.Graphics.Vulkan
     {
         private const int SaveInterval = 64;
         private const long MinimumSaveIntervalMs = 15_000;
+        // A pessimistic near-budget estimate must not trigger a 300+ MiB snapshot on
+        // every pipeline creation. Keep emergency recycling responsive.
+        private const long MinimumNearBudgetProbeIntervalMs = 10_000;
+        private const long EmergencyOverBudgetBytes = 64L * 1024 * 1024;
         private const long TotalCacheBudget = 1024L * 1024 * 1024;
         private const long MainCacheBudget = 256L * 1024 * 1024;
         private const long MinimumCacheBudget = 16L * 1024 * 1024;
@@ -307,6 +311,8 @@ namespace Ryujinx.Graphics.Vulkan
 
             if (!force)
             {
+                long now = Environment.TickCount64;
+
                 if (state.EstimatedBytes < state.Budget)
                 {
                     if (string.IsNullOrEmpty(state.Path))
@@ -319,9 +325,23 @@ namespace Ryujinx.Graphics.Vulkan
                         return;
                     }
 
-                    long now = Environment.TickCount64;
-
                     if (state.LastSaveTimestamp != 0 && now - state.LastSaveTimestamp < MinimumSaveIntervalMs)
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    // When a worker starts near its cache budget, EstimatedBytes can
+                    // cross the threshold long before the Vulkan cache actually grows.
+                    // Previously every pipeline then measured and rewrote the entire
+                    // snapshot, sometimes ~374 MiB every 2 seconds on Apple A16.
+                    // Probe at most once per 10 s in the normal case, but bypass the
+                    // throttle when the *estimate* is >64 MiB over budget so the
+                    // existing recycling path can still protect memory promptly.
+                    bool emergency = state.EstimatedBytes >= state.Budget + EmergencyOverBudgetBytes;
+                    if (!emergency && state.LastSaveTimestamp != 0 &&
+                        now - state.LastSaveTimestamp < MinimumNearBudgetProbeIntervalMs)
                     {
                         return;
                     }
