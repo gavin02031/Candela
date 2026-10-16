@@ -99,11 +99,11 @@ private struct OdysseyGlassProfile: Codable {
             (.stick, 0.145, 0.73),
             (.rightStick, 0.60, 0.78),
             (.zl, 0.085, 0.25), (.l, 0.085, 0.37),
-            (.zr, 0.917, 0.25), (.r, 0.917, 0.37),
-            (.throwHat, 0.773, 0.605),
-            (.capture, 0.901, 0.575),
+            (.zr, 0.917, 0.25), (.r, 0.917, 0.355),
+            (.throwHat, 0.773, 0.595),
+            (.capture, 0.901, 0.54),
             (.dive, 0.748, 0.815),
-            (.jump, 0.901, 0.806),
+            (.jump, 0.901, 0.84),
             (.map, 0.79, 0.103),
             (.pause, 0.865, 0.103),
             (.snapshot, 0.94, 0.103)
@@ -160,7 +160,7 @@ private enum OdysseyGlassStorage {
 /// Tracks sources separately so releasing Capture doesn't accidentally release
 /// Throw or a separately held ZL trigger. Multi-button combos are reference-counted.
 @MainActor
-private final class OdysseyGlassInput: ObservableObject {
+private final class OdysseyGlassInput {
     private var held: [OdysseyGlassKey: [VirtualControllerButton]] = [:]
     private var counts: [String: Int] = [:]
     private var activeLeft = false
@@ -443,7 +443,7 @@ private struct OdysseyGlassCanvas: View {
     let selected: OdysseyGlassKey
     var select: (OdysseyGlassKey) -> Void = { _ in }
     var save: () -> Void = {}
-    @StateObject private var input = OdysseyGlassInput()
+    @State private var input = OdysseyGlassInput()
     @State private var pressed: Set<OdysseyGlassKey> = []
     @State private var leftThumb: CGPoint = .zero
     @State private var rightThumb: CGPoint = .zero
@@ -603,7 +603,7 @@ struct CandelaOdysseyGlassEditor: View {
 
                 Toggle("Optional right camera stick", isOn: $profile.showCameraStick)
                     .tint(palette.rose)
-                    .onChange(of: profile.showCameraStick) { _ in save() }
+                    .onChange(of: profile.showCameraStick) { _, _ in save() }
 
                 HStack {
                     Text("Control")
