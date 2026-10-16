@@ -4,6 +4,7 @@ import SwiftUI
 import Melo_Controller
 
 struct CandelaGameControllerView: View {
+    @Environment(\.dismiss) private var dismiss
     let game: GameInfo
     let isEditing: Bool
     @AppStorage("candela.touch.odyssey.enhanced.v1") private var enhancedOdyssey = false
@@ -30,6 +31,21 @@ struct CandelaGameControllerView: View {
                     gameId: game.titleId,
                     gameName: game.titleName
                 )
+                .overlay(alignment: .topTrailing) {
+                    if isEditing {
+                        Button { dismiss() } label: {
+                            Label("Done", systemImage: "checkmark.circle.fill")
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .padding(.horizontal, 15)
+                                .padding(.vertical, 10)
+                                .background(.regularMaterial, in: Capsule())
+                        }
+                        .tint(CandelaPalette(dark: false).rose)
+                        .padding(.top, 15)
+                        .padding(.trailing, 16)
+                        .accessibilityLabel("Close controller editor")
+                    }
+                }
             }
         }
     }
