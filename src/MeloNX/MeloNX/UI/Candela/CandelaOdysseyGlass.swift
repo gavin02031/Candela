@@ -11,6 +11,7 @@ import Melo_Controller
 
 private enum OdysseyGlassKey: String, CaseIterable, Identifiable {
     case stick, rightStick, zl, l, zr, r, throwHat, capture, dive, jump, map, pause, snapshot
+    case a, b, x, y
     var id: String { rawValue }
 
     var label: String {
@@ -28,6 +29,10 @@ private enum OdysseyGlassKey: String, CaseIterable, Identifiable {
         case .map: return "Map"
         case .pause: return "Pause"
         case .snapshot: return "Snapshot"
+        case .a: return "A"
+        case .b: return "B"
+        case .x: return "X"
+        case .y: return "Y"
         }
     }
 
@@ -41,11 +46,13 @@ private enum OdysseyGlassKey: String, CaseIterable, Identifiable {
         case .map: return "safari.fill"
         case .pause: return "pause.fill"
         case .snapshot: return "camera.fill"
+        case .a, .b, .x, .y: return ""
         case .zl, .l, .zr, .r: return ""
         }
     }
 
     var isStick: Bool { self == .stick || self == .rightStick }
+    var isMenuButton: Bool { self == .a || self == .b || self == .x || self == .y }
     var isShoulder: Bool { self == .zl || self == .l || self == .zr || self == .r }
     var isUtility: Bool { self == .map || self == .pause || self == .snapshot }
 
@@ -58,6 +65,7 @@ private enum OdysseyGlassKey: String, CaseIterable, Identifiable {
         case .throwHat, .dive: return 86
         case .zl, .l, .zr, .r: return 78
         case .map, .pause, .snapshot: return 49
+        case .a, .b, .x, .y: return 40
         }
     }
     var baseHeight: CGFloat { isShoulder ? 45 : baseWidth }
@@ -74,6 +82,10 @@ private enum OdysseyGlassKey: String, CaseIterable, Identifiable {
         case .map: return [.back]
         case .pause: return [.start]
         case .snapshot: return [.dPadDown]
+        case .a: return [.A]
+        case .b: return [.B]
+        case .x: return [.X]
+        case .y: return [.Y]
         case .stick, .rightStick: return []
         }
     }
@@ -90,6 +102,8 @@ private struct OdysseyGlassProfile: Codable {
     var scales: [String: Double] = [:]
     var opacity: Double = 0.88
     var showCameraStick: Bool = false
+    // Optional for backwards-compatible decoding of previously saved V2 layouts.
+    var showMenuABXY: Bool? = nil
 
     static let standard: OdysseyGlassProfile = {
         var p = OdysseyGlassProfile()
@@ -106,7 +120,9 @@ private struct OdysseyGlassProfile: Codable {
             (.jump, 0.901, 0.84),
             (.map, 0.79, 0.103),
             (.pause, 0.865, 0.103),
-            (.snapshot, 0.94, 0.103)
+            (.snapshot, 0.94, 0.103),
+            (.y, 0.425, 0.109), (.b, 0.475, 0.109),
+            (.a, 0.525, 0.109), (.x, 0.575, 0.109)
         ]
         for (key, x, y) in positions {
             p.points[key.id] = OdysseyGlassPoint(x: x, y: y)
@@ -395,6 +411,14 @@ private struct OdysseyGlassArtwork: View {
                     .offset(x: thumb.x * size.width * 0.25,
                             y: thumb.y * size.height * 0.25)
                     .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+            } else if kind.isMenuButton {
+                Circle()
+                    .fill(glass)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.92), lineWidth: 1.5))
+                Text(kind.label)
+                    .font(.system(size: size.height * 0.46, weight: .heavy, design: .rounded))
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.35), radius: 2)
             } else {
                 Circle()
                     .fill(glass)
@@ -452,7 +476,8 @@ private struct OdysseyGlassCanvas: View {
         GeometryReader { geo in
             ZStack {
                 ForEach(OdysseyGlassKey.allCases) { key in
-                    if key != .rightStick || profile.showCameraStick {
+                    if (key != .rightStick || profile.showCameraStick)
+                        && (!key.isMenuButton || key == .a || profile.showMenuABXY == true) {
                         let size = dimensions(for: key, in: geo.size)
                         let point = placement(for: key, size: size, in: geo.size)
                         if editing {
@@ -604,6 +629,13 @@ struct CandelaOdysseyGlassEditor: View {
                 Toggle("Optional right camera stick", isOn: $profile.showCameraStick)
                     .tint(palette.rose)
                     .onChange(of: profile.showCameraStick) { _, _ in save() }
+                Toggle("Show all A/B/X/Y menu buttons", isOn: Binding(
+                    get: { profile.showMenuABXY == true },
+                    set: { profile.showMenuABXY = $0; save() }
+                ))
+                .tint(palette.rose)
+                Text("A is always visible near the top center for menu confirmations. Enable all four buttons whenever a game menu needs them.")
+                    .font(.caption).foregroundColor(palette.inkSoft)
 
                 HStack {
                     Text("Control")
