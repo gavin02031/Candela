@@ -124,6 +124,7 @@ public final class RyujinxController: ObservableObject {
     
     @Published public var isRunning: RunningState = .stopped
     @Published var isStopping = false
+    @Published var shutdownTakingLong = false
     @Published public var games: [GameInfo] = []
     @Published var settings: Options = .init(inputPath: "")
     
@@ -208,6 +209,7 @@ public final class RyujinxController: ObservableObject {
     func startGame(_ game: GameInfo) {
         guard !emulationThreadActive, !isRunning.hasStarted() else { return }
         isStopping = false
+        shutdownTakingLong = false
         
         loadConfig()
         
@@ -279,6 +281,7 @@ public final class RyujinxController: ObservableObject {
                 Ryujinx.emulationView = nil
                 CandelaThermal.shared.endSession()
                 self.isStopping = false
+                self.shutdownTakingLong = false
                 self.emulationThreadActive = false
                 
                 if response != 0 {
@@ -295,6 +298,14 @@ public final class RyujinxController: ObservableObject {
     func requestLeaveGame() {
         guard emulationThreadActive, !isStopping else { return }
         isStopping = true
+        shutdownTakingLong = false
+        // Keep the Metal surface and guest memory alive until native shutdown returns.
+        // Never force the library UI to "stopped" while its render worker is running.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            guard let self, self.isStopping, self.emulationThreadActive else { return }
+            self.shutdownTakingLong = true
+            NSLog("[Candela][shutdown] Still waiting for native teardown after 8 seconds")
+        }
         Ryujinx.stopEmulation()
     }
 
