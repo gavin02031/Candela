@@ -23,6 +23,8 @@ struct EmulationView: View {
     private var air = Air.shared
     
     @State var isConnected = false
+    @State private var achievementToastVisible = false
+    @ObservedObject private var achievements = CandelaAchievements.shared
     
     @ViewBuilder
     func emulationView(_ airplay: Bool = false) -> some View {
@@ -44,6 +46,29 @@ struct EmulationView: View {
             emulationView()
                 .overlay(alignment: .top) { CandelaThermalPill() }
                 .overlay(alignment: .topLeading) { CandelaLeaveButton() }
+                .overlay(alignment: .topTrailing) {
+                    if achievementToastVisible {
+                        CandelaAchievementToast()
+                            .padding(.top, 48)
+                            .padding(.trailing, 12)
+                            .allowsHitTesting(false)
+                            .zIndex(20)
+                    }
+                }
+                .onReceive(achievements.$recentUnlock) { achievement in
+                    guard achievement != nil else { return }
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.84)) {
+                        achievementToastVisible = true
+                    }
+                    let capturedID = achievement?.id
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+                        guard achievements.recentUnlock?.id == capturedID else { return }
+                        withAnimation(.easeOut(duration: 0.24)) {
+                            achievementToastVisible = false
+                        }
+                        achievements.dismissToast()
+                    }
+                }
                 .overlay {
                     if ryujinxController.isStopping {
                         ZStack {
