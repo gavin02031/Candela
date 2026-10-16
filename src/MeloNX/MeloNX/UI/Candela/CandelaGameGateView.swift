@@ -15,7 +15,8 @@ struct CandelaGameGateView: View {
     @State private var showDLC = false
     @State private var showSettings = false
     @State private var showControls = false
-    private var palette: CandelaPalette { CandelaPalette(dark: colorScheme == .dark) }
+    @Environment(\.appTheme) private var appTheme
+    private var palette: CandelaPalette { CandelaPalette(dark: appTheme.isDark) }
 
     var body: some View {
         NavigationStack {
