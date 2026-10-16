@@ -15,6 +15,7 @@ struct CandelaGameGateView: View {
     @State private var showDLC = false
     @State private var showSettings = false
     @State private var showControls = false
+    @State private var showAchievements = false
     @Environment(\.appTheme) private var appTheme
     private var palette: CandelaPalette { CandelaPalette(dark: appTheme.isDark) }
 
@@ -75,6 +76,25 @@ struct CandelaGameGateView: View {
                         }
                     }
 
+                    if !CandelaAchievementCatalogue.forGame(game.titleName).isEmpty {
+                        Button { showAchievements = true } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "trophy.fill")
+                                    .font(.system(size: 22))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Achievements").font(.headline)
+                                    Text("50 milestones to discover").font(.caption)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                            }
+                            .foregroundColor(palette.ink)
+                            .padding(17)
+                            .candelaSurface(radius: 18)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     Picker("Game details", selection: $selection) {
                         Text("Overview").tag(0)
                         Text("Activity").tag(1)
@@ -113,6 +133,9 @@ struct CandelaGameGateView: View {
                 }
             }
             .onAppear { cacheBytes = Self.folderSize(URL.cacheFolderURL(for: game)) }
+            .sheet(isPresented: $showAchievements) {
+                NavigationStack { CandelaAchievementsPage(gameName: game.titleName) }
+            }
             .sheet(isPresented: $showMods) { ModsManagerSheet(game: game) }
             .sheet(isPresented: $showDLC) { DLCManagerSheet(game: game) }
             .sheet(isPresented: $showSettings) { PerGameSettingsView(game.titleId) }
