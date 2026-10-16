@@ -350,21 +350,32 @@ struct CandelaHubPage: View {
     let content: AnyView
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            CandelaBackdrop(dark: scheme == .dark).ignoresSafeArea()
-            VStack(spacing: 0) {
-                Text(title)
-                    .font(.system(.title2, design: .rounded).weight(.heavy))
-                    .foregroundColor(CandelaPalette(dark: scheme == .dark).ink)
-                    .padding(.top, 14)
-                    .padding(.bottom, 6)
-                content
-                    .modifier(HiddenScrollBackground())
-            }
-            CandelaBackPill { dismiss() }
-                .padding(.bottom, 18)
+        // Parent settings expose bare Section builders. They must be hosted in
+        // Form or SwiftUI lays out controls as oversized, unstyled stacks.
+        Form {
+            content
         }
-        .navigationBarHidden(true)
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(CandelaBackdrop(dark: scheme == .dark).ignoresSafeArea())
+        .fontDesign(.rounded)
+        .tint(CandelaPalette(dark: scheme == .dark).rose)
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: {
+                    Label("Settings", systemImage: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                }
+                .accessibilityLabel("Back to Candela settings")
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear.frame(height: 80)
+        }
     }
 }
 
