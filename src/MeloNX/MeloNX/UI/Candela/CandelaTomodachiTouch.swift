@@ -389,6 +389,58 @@ private struct TomodachiAnalogTarget: UIViewRepresentable {
     }
 }
 
+/// Original scalable symbols, drawn in SwiftUI instead of shipping game artwork.
+private struct TomodachiNativeGlyph: View {
+    let key: TomodachiTouchKey
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            switch key {
+            case .a:
+                ZStack {
+                    RoundedRectangle(cornerRadius: size * 0.25)
+                        .fill(Color(red: 0.98, green: 0.99, blue: 0.98))
+                        .frame(width: size * 0.88, height: size * 0.72)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: size * 0.45, weight: .heavy))
+                        .foregroundStyle(Color(red: 0.26, green: 0.64, blue: 0.50))
+                }
+            case .b:
+                Image(systemName: "arrow.uturn.backward")
+                    .font(.system(size: size * 0.63, weight: .bold))
+                    .foregroundStyle(Color(red: 0.47, green: 0.36, blue: 0.65))
+            case .x:
+                ZStack {
+                    RoundedRectangle(cornerRadius: size * 0.12)
+                        .fill(.white.opacity(0.86))
+                        .frame(width: size * 0.84, height: size * 0.68)
+                    VStack(spacing: size * 0.10) {
+                        ForEach(0..<3, id: \.self) { _ in
+                            Capsule().fill(Color(red: 0.70, green: 0.39, blue: 0.61))
+                                .frame(width: size * 0.47, height: size * 0.065)
+                        }
+                    }
+                }
+            case .y:
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.system(size: size * 0.67))
+                    .foregroundStyle(Color(red: 0.83, green: 0.45, blue: 0.60))
+            case .plus:
+                Image(systemName: "house.fill")
+                    .font(.system(size: size * 0.62))
+                    .foregroundStyle(Color(red: 0.33, green: 0.61, blue: 0.69))
+            default:
+                Image(systemName: key.symbol)
+                    .font(.system(size: size * (key.isShoulder ? 0.45 : 0.74), weight: .bold))
+                    .foregroundStyle(Color(candelaHex: 0x433956))
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 /// Pastel glass game art without third-party textures or copyrighted assets.
 private struct TomodachiBubble: View {
     let key: TomodachiTouchKey
@@ -425,9 +477,7 @@ private struct TomodachiBubble: View {
                     .shadow(color: .black.opacity(0.15), radius: 5, y: 3)
             } else {
                 VStack(spacing: 2) {
-                    Image(systemName: key.symbol)
-                        .font(.system(size: size * (key.isShoulder ? 0.16 : 0.28),
-                                      weight: .bold))
+                    TomodachiNativeGlyph(key: key, size: size * 0.34)
                         .frame(height: size * 0.30)
                     if labels && !key.isDPad {
                         Text(key.label(in: mode))
@@ -522,6 +572,7 @@ struct TomodachiTouchCanvas: View {
                                     TomodachiPressTarget {
                                         pressed.insert(key)
                                         input.press(key)
+                                        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.45)
                                     } ended: {
                                         pressed.remove(key)
                                         input.release(key)
