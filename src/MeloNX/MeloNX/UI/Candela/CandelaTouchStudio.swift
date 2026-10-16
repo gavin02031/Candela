@@ -7,6 +7,7 @@ struct CandelaGameControllerView: View {
     let game: GameInfo
     let isEditing: Bool
     @AppStorage("candela.touch.odyssey.enhanced.v1") private var enhancedOdyssey = false
+    @AppStorage("candela.touch.tomodachi.enabled.v2") private var tomodachiTouch = true
 
     var body: some View {
         Group {
@@ -15,6 +16,12 @@ struct CandelaGameControllerView: View {
                     CandelaOdysseyGlassEditor(gameId: game.titleId)
                 } else {
                     CandelaOdysseyGlassOverlay(gameId: game.titleId)
+                }
+            } else if tomodachiTouch && game.titleName.localizedCaseInsensitiveContains("tomodachi life") && game.titleName.localizedCaseInsensitiveContains("dream") {
+                if isEditing {
+                    CandelaTomodachiTouchEditor(gameId: game.titleId, gameName: game.titleName)
+                } else {
+                    CandelaTomodachiTouchOverlay(gameId: game.titleId, gameName: game.titleName)
                 }
             } else {
                 ControllerView(
@@ -34,6 +41,7 @@ struct CandelaTouchStudioHub: View {
     @Environment(\.dismiss) private var dismiss
     @State private var editing: GameInfo?
     @AppStorage("candela.touch.odyssey.enhanced.v1") private var enhancedOdyssey = false
+    @AppStorage("candela.touch.tomodachi.enabled.v2") private var tomodachiTouch = true
 
     private var palette: CandelaPalette { CandelaPalette(dark: scheme == .dark) }
     private var games: [GameInfo] {
@@ -63,6 +71,17 @@ struct CandelaTouchStudioHub: View {
                         .tint(palette.rose)
                     Text("Opt-in glass joystick, Jump, Throw, Capture and Dive/Roll. Original controls remain available.")
                         .font(.caption).foregroundColor(palette.inkSoft)
+                }
+                .padding(16)
+                .candelaSurface(radius: 24)
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Tomodachi Life: Living the Dream", systemImage: "heart.text.square.fill")
+                        .font(.headline)
+                    Toggle("Tomodachi Touch · pastel native controls", isOn: $tomodachiTouch)
+                        .tint(palette.rose)
+                    Text("Casual, Hybrid and Classic presets. Touch Scene clears buttons for supported touch-enabled scenes. Use the game tile below to edit the layout.")
+                        .font(.caption)
+                        .foregroundColor(palette.inkSoft)
                 }
                 .padding(16)
                 .candelaSurface(radius: 24)
@@ -99,7 +118,7 @@ struct CandelaTouchStudioHub: View {
                     }
                     .buttonStyle(.plain)
                 }
-                Text("Touch Studio uses the existing Melo-Controller editor. Physical-controller mappings and direct emulated touchscreen input are not modified.")
+                Text("Odyssey Glass and Tomodachi Touch use Candela layouts layered over MeloNX. Other games retain the existing Melo-Controller editor. Bluetooth mappings and emulated touchscreen forwarding are preserved.")
                     .font(.footnote).foregroundColor(palette.inkSoft)
                     .padding(.bottom, 65)
             }
