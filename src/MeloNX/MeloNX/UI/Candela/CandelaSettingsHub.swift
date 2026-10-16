@@ -383,6 +383,7 @@ struct CandelaHubPage: View {
 // A console-style landing screen influenced by visuals-first handheld frontends.
 // Existing Graphics/Input/System/Misc/Advanced forms remain available and unchanged.
 private struct CandelaSettingsDashboard: View {
+    @Environment(\.appTheme) private var appTheme
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var thermal = CandelaThermal.shared
@@ -392,7 +393,7 @@ private struct CandelaSettingsDashboard: View {
     let isJIT: Bool
     let destination: (SettingsView.SettingsCategory) -> AnyView
 
-    private var palette: CandelaPalette { CandelaPalette(dark: scheme == .dark) }
+    private var palette: CandelaPalette { CandelaPalette(dark: appTheme.isDark) }
     private var selectedStyle: CandelaThemeStyle {
         CandelaThemeStyle(rawValue: themeChoice) ?? .pastelDream
     }
