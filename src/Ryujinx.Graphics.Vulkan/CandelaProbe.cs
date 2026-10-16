@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 using Ryujinx.Common.Logging;
+using System;
 using System.Collections.Concurrent;
 using System.Threading;
 
@@ -12,13 +13,18 @@ namespace Ryujinx.Graphics.Vulkan
     static class CandelaProbe
     {
         private const int MaxLines = 300;
+
+        // Opt-in on an actual diagnostic session; no per-draw string formatting in normal play.
+        // Developers can use CANDELA_GPU_PROBES=1 in the app process environment.
+        internal static readonly bool Enabled = string.Equals(
+            Environment.GetEnvironmentVariable("CANDELA_GPU_PROBES"), "1", StringComparison.Ordinal);
         private static readonly ConcurrentDictionary<string, string> _last = new();
         private static int _lines;
         private static readonly ConcurrentDictionary<string, int> _perKey = new();
 
         public static void Note(string key, string value)
         {
-            if (_lines >= MaxLines)
+            if (!Enabled || _lines >= MaxLines)
             {
                 return;
             }

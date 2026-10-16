@@ -59,3 +59,7 @@ File: `src/Ryujinx.Graphics.Vulkan/PipelineCacheManager.cs`.
 - Build through existing GitHub Actions workflow with untouched signing, entitlements and project configuration.
 
 Tomodachi Touch V2 is a separate control/UI feature and is not modified by the performance fix.
+
+## Diagnostic-probe overhead improvement
+
+Production Vulkan framebuffer, scissor and viewport draw paths now check `CandelaProbe.Enabled` *before* formatting diagnostic strings or updating concurrent dictionaries. The existing `[Candela][probe]` capture is off by default; developers may opt in with the `CANDELA_GPU_PROBES=1` process environment variable. This doesn't disable the `[Candela][frames]`, `[Candela][bound]` and pipeline-compilation telemetry used for performance comparisons, and it makes no renderer correctness or MoltenVK capability changes.

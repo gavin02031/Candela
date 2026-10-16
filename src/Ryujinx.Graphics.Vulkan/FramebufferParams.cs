@@ -416,9 +416,9 @@ namespace Ryujinx.Graphics.Vulkan
                 Layers = Layers,
             };
 
-            if (Width >= 256 && Height >= 256) CandelaProbe.Note("framebuffer", $"{Width}x{Height} attachments={AttachmentsCount} depth={(_depthStencil != null)}");
+            if (CandelaProbe.Enabled && Width >= 256 && Height >= 256) CandelaProbe.Note("framebuffer", $"{Width}x{Height} attachments={AttachmentsCount} depth={(_depthStencil != null)}");
 
-            if (Width >= 256 && Height >= 256)
+            if (CandelaProbe.Enabled && Width >= 256 && Height >= 256)
             {
                 // Fog diagnostic: attachment sizes and formats, so a mismatched or stale depth/color target shows up in the log.
                 TextureView c0 = _colors != null && _colors.Length > 0 ? _colors[0] : null;
