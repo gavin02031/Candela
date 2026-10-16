@@ -1,4 +1,5 @@
 name: Build unsigned iOS IPA
+# V3 final validation for profile bottom tab and accessible pastel accents; build steps unchanged.
 # V3 UI/profile/stats/ABXY build trigger; workflow steps unchanged.
 # V2 Swift-state fix validation trigger, build configuration unchanged.
 # Retry V2 Glass controls after Combine import fix; no workflow behavior changed.
