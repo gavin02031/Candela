@@ -303,6 +303,12 @@ private enum CandelaMusicShelf: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+private struct CandelaMusicSelection: Identifiable {
+    let id = UUID()
+    let collection: MPMediaItemCollection
+    let title: String
+}
+
 struct CandelaMusicView: View {
     @ObservedObject var music: CandelaMusic = .shared
     @Environment(\.dismiss) private var dismiss
@@ -311,8 +317,7 @@ struct CandelaMusicView: View {
     @State private var search = ""
     @State private var shelf: CandelaMusicShelf = .playlists
     @State private var showPlayer = false
-    @State private var selectedCollection: MPMediaItemCollection?
-    @State private var selectedName = ""
+    @State private var selectedCollection: CandelaMusicSelection?
 
     private var palette: CandelaPalette { CandelaPalette(dark: scheme == .dark) }
 
@@ -379,9 +384,9 @@ struct CandelaMusicView: View {
             .sheet(isPresented: $showPlayer) {
                 CandelaFullMusicPlayer(music: music)
             }
-            .sheet(item: $selectedCollection, onDismiss: { selectedName = "" }) { collection in
-                CandelaMusicCollectionView(music: music, collection: collection,
-                                          collectionTitle: selectedName)
+            .sheet(item: $selectedCollection) { selection in
+                CandelaMusicCollectionView(music: music, collection: selection.collection,
+                                          collectionTitle: selection.title)
             }
             .onAppear {
                 if music.status == .authorized { music.loadLibrary() }
@@ -633,8 +638,7 @@ struct CandelaMusicView: View {
         let count = list.count
         return HStack(spacing: 12) {
             Button {
-                selectedName = name
-                selectedCollection = list
+                selectedCollection = CandelaMusicSelection(collection: list, title: name)
             } label: {
                 HStack(spacing: 12) {
                     CandelaMusicArtwork(
@@ -683,8 +687,7 @@ struct CandelaMusicView: View {
                 ForEach(filteredAlbums, id: \.persistentID) { album in
                     let name = album.representativeItem?.albumTitle ?? "Album"
                     Button {
-                        selectedName = name
-                        selectedCollection = album
+                        selectedCollection = CandelaMusicSelection(collection: album, title: name)
                     } label: {
                         VStack(alignment: .leading, spacing: 7) {
                             GeometryReader { proxy in
