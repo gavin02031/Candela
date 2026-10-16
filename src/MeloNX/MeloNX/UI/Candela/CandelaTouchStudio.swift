@@ -171,35 +171,64 @@ struct CandelaTouchStudioHub: View {
     }
 }
 
+// MARK: - App-wide appearance gallery
+// The same selected preset drives SwiftUI, native navigation, surfaces and music.
+
 struct CandelaThemeGallery: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("candela.theme.style.v1") private var selected = CandelaThemeStyle.pastelDream.rawValue
+    @ObservedObject private var themeManager = ThemeManager.shared
+
+    private let columns = [GridItem(.adaptive(minimum: 145, maximum: 210), spacing: 13)]
 
     var body: some View {
         let palette = CandelaPalette(dark: scheme == .dark)
         ScrollView {
-            VStack(alignment: .leading, spacing: 15) {
-                Text("Choose your glow").font(.largeTitle.bold())
-                Text("Pastel Dream is Candela's signature look.")
-                    .foregroundColor(palette.inkSoft)
-                ForEach(CandelaThemeStyle.allCases) { style in
-                    Button { selected = style.rawValue } label: {
-                        HStack(spacing: 14) {
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(LinearGradient(colors: style.colors, startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 85, height: 62)
-                            Text(style.title).font(.headline)
-                            Spacer()
-                            Image(systemName: selected == style.rawValue ? "checkmark.circle.fill" : "circle")
-                                .foregroundColor(palette.rose)
-                        }
-                        .padding(14).candelaSurface(radius: 19)
-                    }.buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 19) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Make Candela yours.")
+                        .font(.system(size: 29, weight: .heavy, design: .rounded))
+                        .foregroundColor(palette.ink)
+                    Text("One look across Home, games, Music and Settings.")
+                        .font(.system(size: 13, design: .rounded))
+                        .foregroundColor(palette.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+
+                HStack(spacing: 11) {
+                    Image(systemName: "paintpalette.fill")
+                        .foregroundStyle(palette.accentGradient)
+                        .font(.system(size: 24))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Active theme")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundColor(palette.inkSoft)
+                        Text(themeManager.currentTheme.name)
+                            .font(.system(size: 18, weight: .heavy, design: .rounded))
+                            .foregroundColor(palette.ink)
+                    }
+                    Spacer()
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundColor(palette.rose)
+                }
+                .padding(17)
+                .candelaSurface(radius: 22)
+
+                LazyVGrid(columns: columns, spacing: 13) {
+                    ForEach(CandelaThemeStyle.allCases) { style in
+                        themeCard(style)
+                    }
+                }
+
+                Label("Your choice is saved automatically and stays in sync across the app.",
+                      systemImage: "checkmark.shield")
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundColor(palette.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
             }
-            .padding(20)
-            .foregroundColor(palette.ink)
+            .padding(19)
+            .padding(.bottom, 26)
         }
         .background(CandelaBackdrop(dark: scheme == .dark).ignoresSafeArea())
         .navigationTitle("Themes")
@@ -215,5 +244,118 @@ struct CandelaThemeGallery: View {
                 .accessibilityLabel("Back to settings")
             }
         }
+    }
+
+    private func themeCard(_ style: CandelaThemeStyle) -> some View {
+        let chosen = themeManager.currentTheme.id == style.rawValue
+        let palette = CandelaPalette(dark: scheme == .dark)
+
+        return Button {
+            themeManager.selectCandela(style)
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                CandelaThemeScenePreview(style: style)
+                    .frame(height: 132)
+                    .clipped()
+
+                HStack(alignment: .center, spacing: 7) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(style.title)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(palette.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.76)
+                        Text(style.subtitle)
+                            .font(.system(size: 10, design: .rounded))
+                            .foregroundColor(palette.inkSoft)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: chosen ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 18))
+                        .foregroundColor(chosen ? palette.rose : palette.inkSoft.opacity(0.52))
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 11)
+                .frame(minHeight: 65)
+                .background(palette.card)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(chosen ? palette.rose : palette.cardStroke,
+                                  lineWidth: chosen ? 2.5 : 1)
+            }
+            .shadow(color: chosen ? palette.rose.opacity(0.15) : .clear, radius: 13, y: 5)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(style.title + (chosen ? ", selected" : ", apply theme"))
+        .accessibilityAddTraits(chosen ? [.isSelected] : [])
+    }
+}
+
+private struct CandelaThemeScenePreview: View {
+    let style: CandelaThemeStyle
+
+    private var foreground: Color {
+        style.isDark ? .white : Color(candelaHex: 0x332C4C)
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: style.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+            Circle()
+                .fill(.white.opacity(style.isDark ? 0.10 : 0.45))
+                .frame(width: 110)
+                .blur(radius: 24)
+                .offset(x: 67, y: -50)
+            VStack(spacing: 8) {
+                HStack(spacing: 5) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Candela")
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    Spacer()
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .foregroundColor(foreground)
+                HStack(spacing: 9) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 11)
+                            .fill(.white.opacity(style.isDark ? 0.14 : 0.66))
+                        Image(systemName: "gamecontroller.fill")
+                            .font(.system(size: 25))
+                            .foregroundColor(foreground)
+                    }
+                    .frame(width: 62, height: 56)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Capsule().fill(foreground.opacity(0.74)).frame(width: 53, height: 6)
+                        Capsule().fill(foreground.opacity(0.33)).frame(width: 38, height: 5)
+                        Capsule()
+                            .fill(Color(candelaHex: UInt32(style.accentHex.dropFirst(), radix: 16) ?? 0x9360A2))
+                            .frame(width: 55, height: 15)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(8)
+                .background(.white.opacity(style.isDark ? 0.10 : 0.48),
+                            in: RoundedRectangle(cornerRadius: 14))
+                Spacer(minLength: 0)
+                HStack(spacing: 16) {
+                    Image(systemName: "house.fill")
+                    Image(systemName: "square.grid.2x2")
+                    Image(systemName: "gearshape")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(foreground)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 5)
+                .background(.white.opacity(style.isDark ? 0.13 : 0.36), in: Capsule())
+            }
+            .padding(12)
+        }
+        .accessibilityHidden(true)
     }
 }
