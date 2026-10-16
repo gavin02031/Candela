@@ -1,4 +1,5 @@
 name: Build unsigned iOS IPA
+# Verify Tomodachi Touch V2, restored settings Forms and back navigation; no build-step changes.
 # Tomodachi Touch V2 build: original native build steps unchanged.
 # Validate Candela V3 glass navigation, profile, stats and Odyssey menu controls (no build-step changes).
 # rebuild trigger: guest memory fallback, page table fallback, donor retry, address space probe, log share, pairing export, pastel UI, new first-launch setup, theme fix, pre-release, contrast fix, section syntax, log cap, game page, music, target 17.4, combine import, tuning presets, 512 MiB cache, music pause, thermal governor, settings hub, exit button, renames, swapchain fix, dots, home pill, inline settings rows, persistent home button, onboarding card, thermal hysteresis, perf counters, experiment toggles, scrolling tabs, home dedupe, frame stats, size probe, resume hero, recipes, 1 GiB cache, controller leave, home text fit, plus minus leave, home width hotfix, release 1.2.1, touch combo, library port, rebrand 1b, frame bound report, jump card polish, fog attach probe, jump card wash fix, header rebrand, dedicated leave button
