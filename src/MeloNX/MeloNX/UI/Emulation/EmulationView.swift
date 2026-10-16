@@ -89,6 +89,7 @@ struct EmulationView: View {
                     }
                 }
                 .onAppear() {
+                    achievements.beginSession(gameID: game.titleId)
                     libraryStats.startSession(game)
                     if scenePhase != .active { libraryStats.pauseSession() }
                     statisticsHandler.registerPush()
@@ -98,7 +99,10 @@ struct EmulationView: View {
                     
                     Air.play(AnyView(emulationView(true)))
                 }
-                .onDisappear { libraryStats.endSession() }
+                .onDisappear {
+                    libraryStats.endSession()
+                    achievements.endSession()
+                }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { libraryStats.resumeSession() }
                     else { libraryStats.pauseSession() }
