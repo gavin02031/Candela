@@ -194,11 +194,12 @@ struct ContentView: View {
 /// A lightweight, native-feeling replacement for the standard tab bar. Only
 /// Candela's launcher uses it; gameplay and the emulation hierarchy are unchanged.
 private struct CandelaFloatingTabBar: View {
+    @Environment(\.appTheme) private var appTheme
     @Binding var selection: Tab
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var palette: CandelaPalette { CandelaPalette(dark: scheme == .dark) }
+    private var palette: CandelaPalette { CandelaPalette(dark: appTheme.isDark) }
 
     var body: some View {
         HStack(spacing: 5) {
