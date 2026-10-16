@@ -385,9 +385,15 @@ namespace Ryujinx.Library
 
             MainLoop();
 
-            _gpuDoneEvent.WaitOne();
-            // GPU worker may still be finalizing after signaling completion.
+            // Never wait indefinitely on the render worker without diagnostics.
+            // Native teardown still waits for it: disposing live GPU memory is unsafe.
+            Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] Main loop exited; awaiting GPU worker.");
+            if (!_gpuDoneEvent.WaitOne(TimeSpan.FromSeconds(8)))
+            {
+                Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] GPU worker has not signaled completion after 8s; waiting safely.");
+            }
             renderLoopThread.Join();
+            Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] GPU worker joined.");
             Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] Input and GPU loops drained.");
             Exit();
         }
