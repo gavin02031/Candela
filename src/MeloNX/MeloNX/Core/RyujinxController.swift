@@ -123,6 +123,7 @@ public final class RyujinxController: ObservableObject {
     private init() {}
     
     @Published public var isRunning: RunningState = .stopped
+    @Published var isStopping = false
     @Published public var games: [GameInfo] = []
     @Published var settings: Options = .init(inputPath: "")
     
@@ -206,6 +207,7 @@ public final class RyujinxController: ObservableObject {
     
     func startGame(_ game: GameInfo) {
         guard !emulationThreadActive, !isRunning.hasStarted() else { return }
+        isStopping = false
         
         loadConfig()
         
@@ -273,6 +275,10 @@ public final class RyujinxController: ObservableObject {
             RamDonor.teardown()
             
             DispatchQueue.main.async {
+                // Metal layer must outlive native rendering/teardown.
+                Ryujinx.emulationView = nil
+                CandelaThermal.shared.endSession()
+                self.isStopping = false
                 self.emulationThreadActive = false
                 
                 if response != 0 {
@@ -285,6 +291,13 @@ public final class RyujinxController: ObservableObject {
     }
     
     
+    /// One exit flow for the glass button and the in-game menu.
+    func requestLeaveGame() {
+        guard emulationThreadActive, !isStopping else { return }
+        isStopping = true
+        Ryujinx.stopEmulation()
+    }
+
     func redirectStdIOToFile(for game: GameInfo) {
         let fileManager = FileManager.default
         

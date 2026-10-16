@@ -56,10 +56,7 @@ struct InGameConfigView: View {
     }
 
     private func leaveGame() {
-        Ryujinx.stopEmulation()
-        Ryujinx.emulationView = nil
-        CandelaThermal.shared.endSession()
-        ryujinxController.isRunning = .stopped
+        ryujinxController.requestLeaveGame()
     }
 
     private var homeButton: some View {

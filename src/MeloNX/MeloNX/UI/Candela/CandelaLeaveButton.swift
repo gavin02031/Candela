@@ -27,7 +27,8 @@ struct CandelaLeaveButton: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .opacity(0.7)
+        .disabled(ryujinxController.isStopping)
+        .opacity(ryujinxController.isStopping ? 0.25 : 0.7)
         .padding(.leading, 12)
         .padding(.top, 8)
         .accessibilityLabel("Leave game")
@@ -40,9 +41,6 @@ struct CandelaLeaveButton: View {
     }
 
     private func leave() {
-        Ryujinx.stopEmulation()
-        Ryujinx.emulationView = nil
-        CandelaThermal.shared.endSession()
-        ryujinxController.isRunning = .stopped
+        ryujinxController.requestLeaveGame()
     }
 }

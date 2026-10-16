@@ -44,6 +44,25 @@ struct EmulationView: View {
             emulationView()
                 .overlay(alignment: .top) { CandelaThermalPill() }
                 .overlay(alignment: .topLeading) { CandelaLeaveButton() }
+                .overlay {
+                    if ryujinxController.isStopping {
+                        ZStack {
+                            Color.black.opacity(0.60).ignoresSafeArea()
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .tint(.white)
+                                    .scaleEffect(1.3)
+                                Text("Leaving game…")
+                                    .font(.system(.headline, design: .rounded).weight(.bold))
+                                Text("Finishing emulator cleanup")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.76))
+                            }
+                            .foregroundStyle(.white)
+                        }
+                        .accessibilityLabel("Leaving game, please wait")
+                    }
+                }
                 .onAppear() {
                     libraryStats.startSession(game)
                     if scenePhase != .active { libraryStats.pauseSession() }

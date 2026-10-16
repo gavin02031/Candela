@@ -182,11 +182,9 @@ namespace Ryujinx.Library
         [UnmanagedCallersOnly(EntryPoint = "stop_emulation")]
         public static void StopEmulation()
         {
-            if (_window != null)
-            {
-                _window.Exit();
-                _emulationContext.Dispose();
-            }
+            // Only request stop from the UI. ExecutionEntrypoint is the
+            // sole owner of guest-memory disposal, after both loops drain.
+            _window?.Exit();
         }
         
         public static nint GetNativeMetalLayer()
@@ -1113,8 +1111,12 @@ namespace Ryujinx.Library
             _window.Initialize(_emulationContext, _inputConfiguration, _enableKeyboard, _enableMouse);
             _window.Execute();
 
+            Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] Disposing guest after input and GPU loops.");
             _emulationContext.Dispose();
             _window.Dispose();
+            _emulationContext = null;
+            _window = null;
+            Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] Cleanup complete.");
 
             if (OperatingSystem.IsWindows())
             {

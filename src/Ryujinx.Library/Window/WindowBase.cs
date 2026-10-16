@@ -84,8 +84,9 @@ namespace Ryujinx.Library
 
 
         private long _ticks;
-        public bool _isActive;
-        private bool _isStopped;
+        public volatile bool _isActive;
+        private volatile bool _isStopped;
+        private readonly Lock _shutdownLock = new();
 
         public bool _ranFirstFrame;
 
@@ -191,7 +192,9 @@ namespace Ryujinx.Library
 
         public void Render()
         {
-            InitializeWindowRenderer();
+            try
+            {
+                InitializeWindowRenderer();
 
             Device.Gpu.Renderer.Initialize(_glLogLevel);
 
@@ -214,10 +217,15 @@ namespace Ryujinx.Library
                 {
                     if (_isStopped)
                     {
-                        return;
+                        break;
                     }
 
                     _pauseEvent.WaitOne();
+
+                    if (_isStopped || !_isActive)
+                    {
+                        break;
+                    }
 
                     _ticks += _chrono.ElapsedTicks;
 
@@ -270,33 +278,42 @@ namespace Ryujinx.Library
                     threaded.FlushThreadedCommands();
                 }
 
-                _gpuDoneEvent.Set();
             });
-
-            FinalizeWindowRenderer();
+            }
+            finally
+            {
+                // Even early shader-cache exit must unblock emulation teardown.
+                try
+                {
+                    FinalizeWindowRenderer();
+                }
+                finally
+                {
+                    _gpuDoneEvent.Set();
+                }
+            }
         }
 
+        /// <summary>
+        /// Non-blocking stop request. Device/guest memory must not be disposed
+        /// until MainLoop and the GPU thread have both finished.
+        /// </summary>
         public void Exit()
         {
-            TouchScreenManager?.Dispose();
-            NpadManager?.Dispose();
-            Device.Dispose();
-
-            if (_isStopped)
+            lock (_shutdownLock)
             {
-                return;
+                if (_isStopped)
+                {
+                    return;
+                }
+                _isStopped = true;
+                _isActive = false;
             }
 
+            Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] Stop requested; draining input and GPU loops.");
             _gpuCancellationTokenSource.Cancel();
-
-            _isStopped = true;
-            _isActive = false;
+            _pauseEvent.Set();
             _inputUpdatedEvent.Set();
-
-            _exitEvent.WaitOne();
-            _exitEvent.Dispose();
-
-            NativeGamepadDriver.OnInputUpdated -= SignalInputUpdated;
         }
 
         public static void ProcessMainThreadQueue()
@@ -369,8 +386,9 @@ namespace Ryujinx.Library
             MainLoop();
 
             _gpuDoneEvent.WaitOne();
-            _gpuDoneEvent.Dispose();
-
+            // GPU worker may still be finalizing after signaling completion.
+            renderLoopThread.Join();
+            Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] Input and GPU loops drained.");
             Exit();
         }
 
@@ -523,6 +541,11 @@ namespace Ryujinx.Library
                 NativeGamepadDriver.OnInputUpdated -= SignalInputUpdated;
                 TouchScreenManager?.Dispose();
                 NpadManager.Dispose();
+                _gpuDoneEvent.Dispose();
+                _exitEvent.Dispose();
+                _pauseEvent.Dispose();
+                _inputUpdatedEvent.Dispose();
+                _gpuCancellationTokenSource.Dispose();
             }
         }
 
