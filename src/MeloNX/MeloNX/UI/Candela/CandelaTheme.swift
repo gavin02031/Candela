@@ -92,7 +92,7 @@ struct CandelaPalette {
     private var second: Color { style.colors[1] }
 
     // Accent colors are deliberately stronger than decorative background colors.
-    private var strongAccent: Color { Color(hex: style.accentHex) }
+    private var strongAccent: Color { Color(candelaHex: UInt32(style.accentHex.dropFirst(), radix: 16) ?? 0x9360A2) }
     var rose: Color {
         if isClassic { return dark ? Color(candelaHex: 0xF2A9C4) : Color(candelaHex: 0xC9648C) }
         return strongAccent
@@ -101,7 +101,7 @@ struct CandelaPalette {
     var roseSoft: Color {
         dark ? rose.opacity(0.68) : (isClassic ? Color(candelaHex: 0xF4C6D7) : first.opacity(0.82))
     }
-    var sky: Color { Color(hex: style.secondaryAccentHex) }
+    var sky: Color { Color(candelaHex: UInt32(style.secondaryAccentHex.dropFirst(), radix: 16) ?? 0x5D9EA2) }
     var skySoft: Color { dark ? sky.opacity(0.67) : second.opacity(0.78) }
 
     // Entire background, not only button accents, changes when switching themes.
