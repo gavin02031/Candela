@@ -45,7 +45,19 @@ struct CandelaTomodachiTouchEditor: View {
         .fullScreenCover(isPresented: $showClassicEditor) {
             ControllerView(controller: VirtualControllerManager.shared,
                            isEditing: true, gameId: gameId, gameName: gameName)
-                .interactiveDismissDisabled(true)
+                .overlay(alignment: .topTrailing) {
+                    Button { showClassicEditor = false } label: {
+                        Label("Done", systemImage: "checkmark.circle.fill")
+                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                            .foregroundColor(p.ink)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 11)
+                            .background(.regularMaterial, in: Capsule())
+                    }
+                    .padding(.top, 14)
+                    .padding(.trailing, 16)
+                    .accessibilityLabel("Close classic controller editor")
+                }
         }
         .alert("Reset Tomodachi Touch?", isPresented: $showResetAlert) {
             Button("Cancel", role: .cancel) {}
