@@ -14,7 +14,8 @@ struct CandelaHomeView: View {
     @EnvironmentObject var ryujinxController: RyujinxController
     @StateObject private var store = CandelaLibraryStore.shared
     @Environment(\.colorScheme) private var colorScheme
-    private var palette: CandelaPalette { CandelaPalette(dark: colorScheme == .dark) }
+    @Environment(\.appTheme) private var appTheme
+    private var palette: CandelaPalette { CandelaPalette(dark: appTheme.isDark) }
     @State private var activeSheet: ActiveSheet?
     @State private var controllerEditor: GameInfo?
     @AppStorage("candela.theme.style.v1") private var selectedTheme = CandelaThemeStyle.pastelDream.rawValue
