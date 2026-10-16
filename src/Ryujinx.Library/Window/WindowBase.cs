@@ -238,7 +238,9 @@ namespace Ryujinx.Library
                         break;
                     }
 
+                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU entering WaitFifo.");
                     bool fifoReady = Device.WaitFifo();
+                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU returned from WaitFifo.");
 
                     if (_gpuCancellationTokenSource.IsCancellationRequested || _isStopped)
                     {
@@ -249,7 +251,9 @@ namespace Ryujinx.Library
                     if (fifoReady)
                     {
                         Device.Statistics.RecordFifoStart();
+                        Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU entering ProcessFrame.");
                         Device.ProcessFrame();
+                        Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU returned from ProcessFrame.");
                         Device.Statistics.RecordFifoEnd();
                     }
 
@@ -258,7 +262,10 @@ namespace Ryujinx.Library
                         break;
                     }
 
-                    if (Device.PresentLoop(SwapBuffers))
+                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU entering PresentLoop.");
+                    bool framePresented = Device.PresentLoop(SwapBuffers);
+                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU returned from PresentLoop.");
+                    if (framePresented)
                     {
                         if (!_ranFirstFrame)
                         { 
@@ -295,7 +302,9 @@ namespace Ryujinx.Library
 
                 if (Device.Gpu.Renderer is ThreadedRenderer threaded)
                 {
+                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU entering FlushThreadedCommands.");
                     threaded.FlushThreadedCommands();
+                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU returned from FlushThreadedCommands.");
                 }
 
             });
@@ -309,6 +318,7 @@ namespace Ryujinx.Library
                 }
                 finally
                 {
+                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU signaling completion.");
                     _gpuDoneEvent.Set();
                 }
             }
