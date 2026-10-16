@@ -1,6 +1,7 @@
 name: Build unsigned iOS IPA
 # Validate native shutdown GPU drain diagnostics and stalled-cleanup UI.
 # Rebuild after Combine import fix and native touch artwork changes.
+# Validate low-overhead GPU shutdown stage tracing on device.
 # Validate monotonic foreground playtime accounting and shutdown flush.
 # Validate profile-scoped achievements and in-game toast queue; build steps unchanged.
 # Trigger corrected Music V2 plus integrated Candela theme presets; build steps unchanged.
