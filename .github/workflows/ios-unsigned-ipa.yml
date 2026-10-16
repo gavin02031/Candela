@@ -1,4 +1,5 @@
 name: Build unsigned iOS IPA
+# SMO pipeline-cache checkpoint throttle + Tomodachi Touch V2 validation (steps unchanged).
 # Verify Tomodachi Touch V2, restored settings Forms and back navigation; no build-step changes.
 # Tomodachi Touch V2 build: original native build steps unchanged.
 # Validate Candela V3 glass navigation, profile, stats and Odyssey menu controls (no build-step changes).
