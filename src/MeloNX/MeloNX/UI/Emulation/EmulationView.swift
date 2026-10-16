@@ -56,17 +56,8 @@ struct EmulationView: View {
                     }
                 }
                 .onReceive(achievements.$recentUnlock) { achievement in
-                    guard achievement != nil else { return }
                     withAnimation(.spring(response: 0.38, dampingFraction: 0.84)) {
-                        achievementToastVisible = true
-                    }
-                    let capturedID = achievement?.id
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
-                        guard achievements.recentUnlock?.id == capturedID else { return }
-                        withAnimation(.easeOut(duration: 0.24)) {
-                            achievementToastVisible = false
-                        }
-                        achievements.dismissToast()
+                        achievementToastVisible = achievement != nil
                     }
                 }
                 .overlay {
