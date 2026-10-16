@@ -46,7 +46,20 @@ struct CandelaPalette {
     private var second: Color { style.colors[1] }
 
     // Brand
-    var rose: Color { isClassic ? (dark ? Color(candelaHex: 0xF2A9C4) : Color(candelaHex: 0xC9648C)) : (dark ? first.opacity(0.95) : first) }
+    // Keep subtle pastel fills for backgrounds but use deeper accents for readable text/icons.
+    private var strongAccent: Color {
+        switch style {
+        case .pastelDream: return Color(candelaHex: 0x9360A2)
+        case .classicBlush: return Color(candelaHex: 0xB4527C)
+        case .arcticGlass: return Color(candelaHex: 0x417C9E)
+        case .sunsetPop: return Color(candelaHex: 0xAC6474)
+        case .obsidianEmber: return Color(candelaHex: 0x9C6944)
+        }
+    }
+    var rose: Color { isClassic ? (dark ? Color(candelaHex: 0xF2A9C4) : Color(candelaHex: 0xC9648C)) : (dark ? first.opacity(0.95) : strongAccent) }
+    var primaryButtonInk: Color {
+        style == .obsidianEmber ? .white : Color(candelaHex: 0x352941)
+    }
     var roseSoft: Color { isClassic ? (dark ? Color(candelaHex: 0xF7C6D8) : Color(candelaHex: 0xF4C6D7)) : first.opacity(0.72) }
     var sky: Color { isClassic ? (dark ? Color(candelaHex: 0x93B8F0) : Color(candelaHex: 0x6F97D6)) : second }
     var skySoft: Color { isClassic ? (dark ? Color(candelaHex: 0xB5CEF6) : Color(candelaHex: 0xC6D8F3)) : second.opacity(0.75) }
@@ -200,7 +213,7 @@ struct CandelaPrimaryButtonStyle: ButtonStyle {
         let p = CandelaPalette(dark: scheme == .dark)
         configuration.label
             .font(.system(.headline, design: .rounded))
-            .foregroundColor(scheme == .dark ? Color(candelaHex: 0x2A1A24) : .white)
+            .foregroundColor(isEnabled ? p.primaryButtonInk : p.inkSoft)
             .padding(.vertical, 14)
             .padding(.horizontal, 28)
             .background(
