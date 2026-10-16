@@ -38,6 +38,10 @@ struct ContentView: View {
                 .tabItem { Label("Library", systemImage: "gamecontroller.fill") }
                 .tag(Tab.games)
 
+            CandelaProfileView(games: ryujinxController.games, showsDoneButton: false)
+                .tabItem { Label("Profile", systemImage: "person.crop.circle.fill") }
+                .tag(Tab.profile)
+
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gear") }
                 .tag(Tab.settings)

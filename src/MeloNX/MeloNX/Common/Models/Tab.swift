@@ -11,4 +11,5 @@ import Foundation
 enum Tab: Int, Hashable {
     case games = 0
     case settings = 1
+    case profile = 2
 }

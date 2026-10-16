@@ -29,6 +29,7 @@ struct CandelaProfileAvatar: View {
 
 struct CandelaProfileView: View {
     let games: [GameInfo]
+    var showsDoneButton: Bool = true
     @StateObject private var store = CandelaLibraryStore.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
@@ -62,10 +63,12 @@ struct CandelaProfileView: View {
             .navigationTitle("My Candela")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
-                        .tint(palette.ink)
+                if showsDoneButton {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { dismiss() }
+                            .fontWeight(.semibold)
+                            .tint(palette.ink)
+                    }
                 }
             }
             .sheet(isPresented: $showSwitchUsers) {
