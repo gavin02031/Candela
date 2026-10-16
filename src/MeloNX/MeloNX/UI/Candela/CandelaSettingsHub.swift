@@ -57,6 +57,7 @@ struct CandelaHubScreen: View {
     let destination: (SettingsView.SettingsCategory) -> AnyView  // returns the sections for a category
 
     @State private var tab: CandelaHubTab = .play
+    @AppStorage("candela.theme.style.v1") private var selectedTheme = CandelaThemeStyle.pastelDream.rawValue
     @AppStorage("candela.mvkPerf") private var mvkPerf = false
     @AppStorage("candela.expCompress") private var expCompress = false
     @AppStorage("candela.expPrefill") private var expPrefill = false
@@ -113,6 +114,28 @@ struct CandelaHubScreen: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                         .listRowSeparator(.hidden)
+                }
+            }
+            if tab == .controls || tab == .library {
+                Section {
+                    NavigationLink {
+                        if tab == .controls {
+                            CandelaTouchStudioHub()
+                        } else {
+                            CandelaThemeGallery()
+                        }
+                    } label: {
+                        CandelaRow(
+                            icon: tab == .controls ? "hand.draw.fill" : "paintpalette.fill",
+                            title: tab == .controls ? "Touch Studio" : "Themes",
+                            subtitle: tab == .controls ? "Customize controls for every game" : "Personalize Pastel Dream",
+                            tint: p.rose
+                        ) {
+                            Image(systemName: "chevron.right").foregroundColor(p.inkSoft)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(Color.clear)
                 }
             }
             sections

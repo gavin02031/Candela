@@ -28,7 +28,7 @@ struct EmulationView: View {
             MetalViewContainer(showView: !isConnected, airplay: airplay, ryujinxController: ryujinxController, statisticsHandler: statisticsHandler, nativeSettingsManager: nativeSettingsManager)
                 .overlay {
                     if controllerManager.hasVirtualController() && !airplay {
-                        ControllerView(controller: VirtualControllerManager.shared, isEditing: false, gameId: game.titleId, gameName: game.titleName)
+                        CandelaGameControllerView(game: game, isEditing: false)
                             .opacity(nativeSettingsManager.setting(forKey: "On-ScreenControllerOpacity", default: 1.0).value)
                             .ignoresSafeArea(.all, edges: .vertical)
                     }

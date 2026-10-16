@@ -9,21 +9,51 @@
 
 import SwiftUI
 
+// MARK: - Persistent Candela theme selection
+enum CandelaThemeStyle: String, CaseIterable, Identifiable {
+    case pastelDream, classicBlush, arcticGlass, sunsetPop, obsidianEmber
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .pastelDream: return "Pastel Dream"
+        case .classicBlush: return "Classic Blush"
+        case .arcticGlass: return "Arctic Glass"
+        case .sunsetPop: return "Sunset Pop"
+        case .obsidianEmber: return "Obsidian Ember"
+        }
+    }
+    var colors: [Color] {
+        switch self {
+        case .pastelDream: return [Color(candelaHex: 0xE9D3FA), Color(candelaHex: 0xC8E9DD), Color(candelaHex: 0xF7D5E8)]
+        case .classicBlush: return [Color(candelaHex: 0xF4C6D7), Color(candelaHex: 0xC6D8F3)]
+        case .arcticGlass: return [Color(candelaHex: 0xD2EDFF), Color(candelaHex: 0xB2DAF2)]
+        case .sunsetPop: return [Color(candelaHex: 0xF9BCA9), Color(candelaHex: 0xD8C6F7)]
+        case .obsidianEmber: return [Color(candelaHex: 0x30243B), Color(candelaHex: 0xDDA787)]
+        }
+    }
+}
+
 // MARK: - Palette
 
 /// Colour tokens. `dark` picks the Dusk variant; light is Blush.
 struct CandelaPalette {
     let dark: Bool
+    private var style: CandelaThemeStyle {
+        CandelaThemeStyle(rawValue: UserDefaults.standard.string(forKey: "candela.theme.style.v1") ?? "") ?? .pastelDream
+    }
+    private var isClassic: Bool { style == .classicBlush }
+    private var first: Color { style.colors[0] }
+    private var second: Color { style.colors[1] }
 
     // Brand
-    var rose: Color { dark ? Color(candelaHex: 0xF2A9C4) : Color(candelaHex: 0xC9648C) }
-    var roseSoft: Color { dark ? Color(candelaHex: 0xF7C6D8) : Color(candelaHex: 0xF4C6D7) }
-    var sky: Color { dark ? Color(candelaHex: 0x93B8F0) : Color(candelaHex: 0x6F97D6) }
-    var skySoft: Color { dark ? Color(candelaHex: 0xB5CEF6) : Color(candelaHex: 0xC6D8F3) }
+    var rose: Color { isClassic ? (dark ? Color(candelaHex: 0xF2A9C4) : Color(candelaHex: 0xC9648C)) : (dark ? first.opacity(0.95) : first) }
+    var roseSoft: Color { isClassic ? (dark ? Color(candelaHex: 0xF7C6D8) : Color(candelaHex: 0xF4C6D7)) : first.opacity(0.72) }
+    var sky: Color { isClassic ? (dark ? Color(candelaHex: 0x93B8F0) : Color(candelaHex: 0x6F97D6)) : second }
+    var skySoft: Color { isClassic ? (dark ? Color(candelaHex: 0xB5CEF6) : Color(candelaHex: 0xC6D8F3)) : second.opacity(0.75) }
 
     // Surfaces
-    var backgroundTop: Color { dark ? Color(candelaHex: 0x1D1826) : Color(candelaHex: 0xFCF2F6) }
-    var backgroundBottom: Color { dark ? Color(candelaHex: 0x141A28) : Color(candelaHex: 0xEAF1FB) }
+    var backgroundTop: Color { isClassic ? (dark ? Color(candelaHex: 0x1D1826) : Color(candelaHex: 0xFCF2F6)) : (dark ? Color(candelaHex: 0x241C32) : Color(candelaHex: 0xFCF7FF)) }
+    var backgroundBottom: Color { isClassic ? (dark ? Color(candelaHex: 0x141A28) : Color(candelaHex: 0xEAF1FB)) : (dark ? Color(candelaHex: 0x17252B) : Color(candelaHex: 0xEAF8F3)) }
     var card: Color { dark ? Color(candelaHex: 0x2A2436) : Color.white }
     var cardStroke: Color { dark ? Color(candelaHex: 0x3C3550) : Color(candelaHex: 0xF0DCE5) }
     var field: Color { dark ? Color(candelaHex: 0x241F30) : Color(candelaHex: 0xF6EEF4) }
@@ -38,7 +68,7 @@ struct CandelaPalette {
     var bad: Color { dark ? Color(candelaHex: 0xF2968F) : Color(candelaHex: 0xC5524D) }
 
     var accentGradient: LinearGradient {
-        LinearGradient(colors: [rose, sky], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: isClassic ? [rose, sky] : style.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 }
 

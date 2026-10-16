@@ -17,6 +17,7 @@ struct CandelaHomeView: View {
     private var palette: CandelaPalette { CandelaPalette(dark: colorScheme == .dark) }
     @State private var activeSheet: ActiveSheet?
     @State private var controllerEditor: GameInfo?
+    @AppStorage("candela.theme.style.v1") private var selectedTheme = CandelaThemeStyle.pastelDream.rawValue
     @State private var gateGame: GameInfo?
     @State private var showMusic = false
     @ObservedObject private var music = CandelaMusic.shared
@@ -79,7 +80,11 @@ struct CandelaHomeView: View {
             }
         }
         .fullScreenCover(isPresented: bindingGame($controllerEditor)) {
-            ControllerView(controller: VirtualControllerManager.shared, isEditing: true, gameId: controllerEditor?.titleId ?? "", gameName: controllerEditor?.titleName)
+            Group {
+                if let game = controllerEditor {
+                    CandelaGameControllerView(game: game, isEditing: true)
+                }
+            }
                 .interactiveDismissDisabled(true)
         }
         .sheet(item: $gateGame) { game in
