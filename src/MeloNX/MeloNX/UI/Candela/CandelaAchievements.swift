@@ -65,7 +65,7 @@ enum CandelaAchievementCatalogue {
     ]
 
     static let tomodachi: [CandelaAchievement] = [
-        .init(id: "tomodachi.01", title: "Welcome Home", detail: "Create your first islander", points: 5),
+        .init(id: "tomodachi.01", title: "Create Your First Mii", detail: "Create and save your first Mii", points: 5),
         .init(id: "tomodachi.02", title: "Growing Community", detail: "Have 5 islanders", points: 5),
         .init(id: "tomodachi.03", title: "Crowded Island", detail: "Have 20 islanders", points: 5),
         .init(id: "tomodachi.04", title: "Full House", detail: "Have 50 islanders", points: 5),
@@ -196,6 +196,14 @@ final class CandelaAchievements: ObservableObject {
         unlocked.insert(achievement.id)
         UserDefaults.standard.set(Array(unlocked).sorted(), forKey: storageKey)
         recentUnlock = achievement
+    }
+
+    /// Only a verified Tomodachi save/memory adapter may call this.
+    /// This deliberately does not unlock from game launch, playtime or tapping a button.
+    func reportVerifiedTomodachiResidentCount(previous: Int, current: Int) {
+        guard previous == 0, current >= 1,
+              let firstMii = CandelaAchievementCatalogue.tomodachi.first else { return }
+        unlock(firstMii)
     }
 
     func dismissToast() { recentUnlock = nil }
