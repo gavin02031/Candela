@@ -11,13 +11,10 @@ struct CandelaGameControllerView: View {
     var body: some View {
         Group {
             if enhancedOdyssey && game.titleName.localizedCaseInsensitiveContains("super mario odyssey") {
-                ControllerView(
-                    controller: VirtualControllerManager.shared,
-                    isEditing: isEditing,
-                    gameId: game.titleId + ".candelaOdyssey",
-                    gameName: game.titleName + " · Candela"
-                ) { button, joystick, portrait in
-                    CandelaOdysseyControls(button: button, joystick: joystick, portrait: portrait)
+                if isEditing {
+                    CandelaOdysseyGlassEditor(gameId: game.titleId)
+                } else {
+                    CandelaOdysseyGlassOverlay(gameId: game.titleId)
                 }
             } else {
                 ControllerView(
@@ -27,98 +24,6 @@ struct CandelaGameControllerView: View {
                     gameName: game.titleName
                 )
             }
-        }
-    }
-}
-
-private struct CandelaOdysseyControls: View {
-    let button: SubView
-    let joystick: JoystickSubView
-    let portrait: Bool
-    @State private var leftActive = false
-    @State private var rightActive = false
-    @Environment(\.colorScheme) private var scheme
-
-    var body: some View {
-        Group {
-            if portrait {
-                VStack(spacing: 9) {
-                    Spacer(minLength: 0)
-                    HStack(alignment: .bottom, spacing: 5) {
-                        leftGroup
-                        Spacer(minLength: 0)
-                        rightGroup
-                    }
-                    HStack(spacing: 40) {
-                        button(.back)
-                        button(.start)
-                    }
-                }
-            } else {
-                HStack(alignment: .bottom, spacing: 6) {
-                    leftGroup
-                    Spacer(minLength: 4)
-                    HStack(spacing: 14) {
-                        button(.back)
-                        button(.start)
-                    }
-                    Spacer(minLength: 4)
-                    rightGroup
-                }
-            }
-        }
-        .padding(.horizontal, 5)
-        .padding(.bottom, 9)
-    }
-
-    private var leftGroup: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
-                button(.leftTrigger)
-                button(.leftShoulder)
-            }
-            joystick("leftJoystick", false, $leftActive)
-                .frame(width: 150, height: 150)
-        }
-    }
-    private var rightGroup: some View {
-        VStack(spacing: 7) {
-            HStack(spacing: 6) {
-                button(.rightShoulder)
-                button(.rightTrigger)
-            }
-            if portrait {
-                joystick("rightJoystick", true, $rightActive)
-                    .frame(width: 135, height: 135)
-                actions
-            } else {
-                HStack(alignment: .bottom, spacing: 4) {
-                    joystick("rightJoystick", true, $rightActive)
-                        .frame(width: 140, height: 140)
-                    actions
-                }
-            }
-        }
-    }
-    private var actions: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
-                labeled(.Y, "THROW")
-                labeled(.X, "THROW")
-            }
-            HStack(spacing: 4) {
-                labeled(.B, "JUMP")
-                labeled(.A, "JUMP")
-            }
-        }
-    }
-    private func labeled(_ input: VirtualControllerButton, _ title: String) -> some View {
-        VStack(spacing: 2) {
-            button(input)
-            Text(title)
-                .font(.system(size: 9, weight: .bold, design: .rounded))
-                .foregroundColor(CandelaPalette(dark: scheme == .dark).ink)
-                .allowsHitTesting(false)
         }
     }
 }
@@ -154,9 +59,9 @@ struct CandelaTouchStudioHub: View {
                 VStack(alignment: .leading, spacing: 9) {
                     Label("Super Mario Odyssey", systemImage: "sparkles")
                         .font(.headline)
-                    Toggle("Enhanced jump + Cappy layout", isOn: $enhancedOdyssey)
+                    Toggle("Odyssey Glass · native-style controls", isOn: $enhancedOdyssey)
                         .tint(palette.rose)
-                    Text("Opt-in. Your original controller layout remains unchanged.")
+                    Text("Opt-in glass joystick, Jump, Throw, Capture and Dive/Roll. Original controls remain available.")
                         .font(.caption).foregroundColor(palette.inkSoft)
                 }
                 .padding(16)
@@ -184,7 +89,7 @@ struct CandelaTouchStudioHub: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(game.titleName)
                                     .font(.subheadline.weight(.semibold))
-                                Text("Move, resize and save controls")
+                                Text("Customize touch controls")
                                     .font(.caption).foregroundColor(palette.inkSoft)
                             }
                             Spacer()
