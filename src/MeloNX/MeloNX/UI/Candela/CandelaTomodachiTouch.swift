@@ -206,11 +206,13 @@ struct TomodachiTouchLayout: Codable {
         let scene = override ?? mode
         if preset == .classic { return false }
         if scene == .touchScene { return control == .a || control == .b }
-        if control == .stick { return preset == .hybrid }
+        // Even Casual needs navigation; Nintendo uses controller inputs for most scenes.
+        if control == .stick { return true }
         if control == .cameraStick { return preset == .hybrid && showCameraStick && !focusMode }
         if control.isShoulder { return (showShoulders || scene == .activity) && !focusMode }
         if control.isDPad { return (showDPad || scene == .activity) && !focusMode }
-        if control == .x || control == .y { return !focusMode || scene == .activity }
+        if control == .x { return true }  // Always keep real X menu access.
+        if control == .y { return !focusMode || scene == .activity }
         if control == .plus { return !focusMode }
         return true
     }
@@ -489,7 +491,10 @@ struct TomodachiTouchCanvas: View {
                                         onSelect(key)
                                         guard geometry.size.width > 0, geometry.size.height > 0 else { return }
                                         profile.points[key.rawValue] = TomodachiTouchPoint(
-                                            x: Double(min(0.98, max(0.02, value.location.x / geometry.size.width))),
+                                            x: Double(min(0.98, max(0.02,
+                                                profile.leftHanded && !key.isStick
+                                                    ? 1 - value.location.x / geometry.size.width
+                                                    : value.location.x / geometry.size.width))),
                                             y: Double(min(0.98, max(0.02, value.location.y / geometry.size.height)))
                                         )
                                     }
@@ -569,7 +574,8 @@ struct TomodachiTouchCanvas: View {
 
     private func diameter(_ key: TomodachiTouchKey, in bounds: CGSize) -> CGFloat {
         let base = min(1.12, max(0.42, min(bounds.width / 852, bounds.height / 393)))
-        return key.diameter * base * CGFloat(profile.scale)
+        let compact = profile.preset == .casual && key == .stick ? 0.70 : 1.0
+        return key.diameter * base * CGFloat(profile.scale) * compact
     }
     private func position(_ key: TomodachiTouchKey, radius: CGFloat, canvas: CGSize) -> CGPoint {
         let p = profile.position(key)
@@ -602,6 +608,10 @@ struct CandelaTomodachiTouchOverlay: View {
         .onAppear {
             profile = TomodachiTouchStorage.load(gameId)
             currentMode = profile.mode
+        }
+        .onChange(of: currentMode) { _, next in
+            profile.mode = next
+            TomodachiTouchStorage.save(profile, id: gameId)
         }
     }
 }
