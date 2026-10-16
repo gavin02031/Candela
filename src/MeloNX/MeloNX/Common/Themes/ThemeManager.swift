@@ -29,21 +29,46 @@ final class ThemeManager: ObservableObject {
     private let storageKey = "candela_selected_theme_id"
     
     private init() {
-        let savedId = UserDefaults.standard.string(forKey: "candela_selected_theme_id") ?? UserDefaults.standard.string(forKey: "melonx_selected_theme_id") ?? "default"
-        currentTheme = AppTheme.allBuiltIn.first { $0.id == savedId } ?? .defaultTheme
+        let defaults = UserDefaults.standard
+        let storedStyle = defaults.string(forKey: "candela.theme.style.v1")
+        let legacyID = defaults.string(forKey: "candela_selected_theme_id")
+            ?? defaults.string(forKey: "melonx_selected_theme_id")
+        let style: CandelaThemeStyle
+        if let storedStyle, let preset = CandelaThemeStyle(rawValue: storedStyle) {
+            style = preset
+        } else {
+            // One-time migration of the pre-Candela theme picker preference.
+            switch legacyID {
+            case "candela-blush": style = .classicBlush
+            case "candela-dusk": style = .obsidianEmber
+            case "oled": style = .midnightNeon
+            default: style = .pastelDream
+            }
+        }
+        defaults.set(style.rawValue, forKey: "candela.theme.style.v1")
+        currentTheme = AppTheme.fromCandela(style)
     }
-    
+
     private func persist() {
         UserDefaults.standard.set(currentTheme.id, forKey: storageKey)
+        if let preset = CandelaThemeStyle(rawValue: currentTheme.id) {
+            UserDefaults.standard.set(preset.rawValue, forKey: "candela.theme.style.v1")
+        }
         applyUIKitAppearance()
     }
-    
+
     func select(_ theme: AppTheme) {
+        guard theme != currentTheme else { return }
         withAnimation(.easeInOut(duration: 0.3)) {
             currentTheme = theme
         }
     }
-    
+
+    /// Both gallery and the older Settings appearance sheet use this same source of truth.
+    func selectCandela(_ style: CandelaThemeStyle) {
+        select(AppTheme.fromCandela(style))
+    }
+
     var interfaceStyle: UIUserInterfaceStyle { currentTheme.isDark ? .dark : .light }
 
     /// Pins every window to the theme's light or dark style, so nothing falls back to the phone's system setting.
