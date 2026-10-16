@@ -25,6 +25,7 @@ final class CandelaLibraryStore: ObservableObject {
 
     private var runningGameKey: String?
     private var activeSince: Date?
+    private var activeSinceUptime: TimeInterval?
     private var checkpointTimer: Timer?
 
     private var addedDateCache: [URL: Date] = [:]
@@ -68,13 +69,14 @@ final class CandelaLibraryStore: ObservableObject {
     func startSession(_ game: GameInfo) {
         let key = Self.key(for: game)
         if runningGameKey == key {
-            if activeSince == nil { activeSince = Date() }
+            if activeSince == nil { activeSince = Date(); activeSinceUptime = ProcessInfo.processInfo.systemUptime }
             scheduleCheckpoint()
             return
         }
         endSession()
         runningGameKey = key
         activeSince = Date()
+        activeSinceUptime = ProcessInfo.processInfo.systemUptime
         sessionCounts[key, default: 0] += 1
         UserDefaults.standard.set(sessionCounts, forKey: sessionsKey)
         markPlayed(game)
@@ -95,12 +97,13 @@ final class CandelaLibraryStore: ObservableObject {
     private func checkpoint() {
         guard let key = runningGameKey, let since = activeSince else { return }
         let now = Date()
-        let elapsed = max(0, now.timeIntervalSince(since))
+        let elapsed = elapsedSinceCheckpoint(fallbackDate: since)
         if elapsed.isFinite, elapsed > 0 {
             playtimeSeconds[key, default: 0] += elapsed
             UserDefaults.standard.set(playtimeSeconds, forKey: playtimeKey)
         }
         activeSince = now
+        activeSinceUptime = ProcessInfo.processInfo.systemUptime
     }
 
     /// Background/inactive time must not inflate playtime.
@@ -108,17 +111,19 @@ final class CandelaLibraryStore: ObservableObject {
         checkpointTimer?.invalidate()
         checkpointTimer = nil
         guard let key = runningGameKey, let since = activeSince else { return }
-        let elapsed = max(0, Date().timeIntervalSince(since))
+        let elapsed = elapsedSinceCheckpoint(fallbackDate: since)
         if elapsed.isFinite {
             playtimeSeconds[key, default: 0] += elapsed
             UserDefaults.standard.set(playtimeSeconds, forKey: playtimeKey)
         }
         activeSince = nil
+        activeSinceUptime = nil
     }
 
     func resumeSession() {
         guard runningGameKey != nil, activeSince == nil else { return }
         activeSince = Date()
+        activeSinceUptime = ProcessInfo.processInfo.systemUptime
         scheduleCheckpoint()
     }
 
@@ -131,7 +136,7 @@ final class CandelaLibraryStore: ObservableObject {
         let key = Self.key(for: game)
         let stored = playtimeSeconds[key] ?? 0
         if runningGameKey == key, let since = activeSince {
-            return stored + max(0, Date().timeIntervalSince(since))
+            return stored + elapsedSinceCheckpoint(fallbackDate: since)
         }
         return stored
     }
@@ -141,15 +146,23 @@ final class CandelaLibraryStore: ObservableObject {
     }
 
     var totalPlaytimeSeconds: Double {
-        playtimeSeconds.values.reduce(0, +) + (activeSince.map { max(0, Date().timeIntervalSince($0)) } ?? 0)
+        playtimeSeconds.values.reduce(0, +) + (activeSince.map { elapsedSinceCheckpoint(fallbackDate: $0) } ?? 0)
     }
 
     var totalSessions: Int {
         sessionCounts.values.reduce(0, +)
     }
 
+    private func elapsedSinceCheckpoint(fallbackDate: Date) -> Double {
+        if let uptime = activeSinceUptime {
+            return max(0, ProcessInfo.processInfo.systemUptime - uptime)
+        }
+        return max(0, Date().timeIntervalSince(fallbackDate))
+    }
+
     static func playtimeDescription(_ seconds: Double) -> String {
         let minutes = max(0, Int(seconds.isFinite ? seconds / 60 : 0))
+        if minutes == 0 && seconds > 0 { return "<1m" }
         if minutes < 60 { return "\(minutes)m" }
         let hours = minutes / 60
         return minutes % 60 == 0 ? "\(hours)h" : "\(hours)h \(minutes % 60)m"
