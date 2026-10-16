@@ -126,7 +126,19 @@ struct CandelaTouchStudioHub: View {
             .padding(20)
         }
         .background(CandelaBackdrop(dark: scheme == .dark).ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationBarHidden(false)
+        .navigationTitle("Touch Studio")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: {
+                    Label("Settings", systemImage: "chevron.left")
+                }
+                .tint(palette.rose)
+                .accessibilityLabel("Back to settings")
+            }
+        }
         .overlay(alignment: .bottom) {
             Button { dismiss() } label: {
                 Label("Back", systemImage: "chevron.left")
@@ -144,6 +156,7 @@ struct CandelaTouchStudioHub: View {
 }
 
 struct CandelaThemeGallery: View {
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
     @AppStorage("candela.theme.style.v1") private var selected = CandelaThemeStyle.pastelDream.rawValue
 
@@ -174,5 +187,17 @@ struct CandelaThemeGallery: View {
         }
         .background(CandelaBackdrop(dark: scheme == .dark).ignoresSafeArea())
         .navigationTitle("Themes")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: {
+                    Label("Settings", systemImage: "chevron.left")
+                }
+                .tint(palette.rose)
+                .accessibilityLabel("Back to settings")
+            }
+        }
     }
 }
