@@ -2,6 +2,7 @@
 // Candela's local achievements catalogue. Unlocks must be reported by a verified
 // game-specific event adapter. No time-based or launch-based fake achievements.
 import SwiftUI
+import Combine
 
 struct CandelaAchievement: Identifiable, Hashable {
     let id: String
