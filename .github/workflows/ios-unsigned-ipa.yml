@@ -1,5 +1,5 @@
 name: Build unsigned iOS IPA
-# Validate combined A16 SMO performance fixes and Tomodachi Touch V2; build steps unchanged.
+# Validate combined A16 SMO performance fixes and Tomodachi Touch V2; build steps unchanged., playtime checkpoint
 # SMO pipeline-cache checkpoint throttle + Tomodachi Touch V2 validation (steps unchanged).
 # Verify Tomodachi Touch V2, restored settings Forms and back navigation; no build-step changes.
 # Tomodachi Touch V2 build: original native build steps unchanged.
