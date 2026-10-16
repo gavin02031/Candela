@@ -35,16 +35,26 @@ struct ContentView: View {
     var tabView: some View {
         TabView(selection: $selectedTab) {
             CandelaLibraryRootView()
+                .toolbar(.hidden, for: .tabBar)
                 .tabItem { Label("Library", systemImage: "gamecontroller.fill") }
                 .tag(Tab.games)
 
             CandelaProfileView(games: ryujinxController.games, showsDoneButton: false)
+                .toolbar(.hidden, for: .tabBar)
                 .tabItem { Label("Profile", systemImage: "person.crop.circle.fill") }
                 .tag(Tab.profile)
 
             SettingsView()
+                .toolbar(.hidden, for: .tabBar)
                 .tabItem { Label("Settings", systemImage: "gear") }
                 .tag(Tab.settings)
+        }
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            CandelaFloatingTabBar(selection: $selectedTab)
+                .padding(.horizontal, 25)
+                .padding(.top, 5)
+                .padding(.bottom, 6)
         }
         .accentColor(theme.accent.primary)
         .onAppear { NativeSettingsManager.setShared() }
@@ -180,6 +190,94 @@ struct ContentView: View {
 
 
 
+
+/// A lightweight, native-feeling replacement for the standard tab bar. Only
+/// Candela's launcher uses it; gameplay and the emulation hierarchy are unchanged.
+private struct CandelaFloatingTabBar: View {
+    @Binding var selection: Tab
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var palette: CandelaPalette { CandelaPalette(dark: scheme == .dark) }
+
+    var body: some View {
+        HStack(spacing: 5) {
+            item(.games, title: "Library", symbol: "gamecontroller.fill")
+            item(.profile, title: "Profile", symbol: "person.crop.circle.fill")
+            item(.settings, title: "Settings", symbol: "gearshape.fill")
+        }
+        .padding(6)
+        .background(
+            Capsule(style: .continuous)
+                .fill(.regularMaterial)
+                .overlay {
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    palette.card.opacity(scheme == .dark ? 0.30 : 0.60),
+                                    palette.skySoft.opacity(0.17)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+        )
+        .overlay {
+            Capsule(style: .continuous)
+                .strokeBorder(scheme == .dark ? Color.white.opacity(0.17) : Color.white.opacity(0.85),
+                              lineWidth: 1.4)
+        }
+        .shadow(color: palette.rose.opacity(scheme == .dark ? 0.05 : 0.18), radius: 18, y: 6)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Candela navigation")
+    }
+
+    private func item(_ tab: Tab, title: String, symbol: String) -> some View {
+        let active = selection == tab
+        return Button {
+            if reduceMotion {
+                selection = tab
+            } else {
+                withAnimation(.easeInOut(duration: 0.19)) { selection = tab }
+            }
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: symbol)
+                    .font(.system(size: 21, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                Text(title)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.78)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(active ? palette.ink : palette.inkSoft)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 56)
+            .padding(.horizontal, 4)
+            .background {
+                if active {
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(colors: [
+                                palette.roseSoft.opacity(0.78),
+                                palette.skySoft.opacity(0.63)
+                            ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.62), lineWidth: 0.9)
+                        }
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(active ? [.isSelected] : [])
+    }
+}
 
 #Preview {
     ContentView()
