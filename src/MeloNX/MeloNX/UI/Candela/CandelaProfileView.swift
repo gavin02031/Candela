@@ -38,7 +38,8 @@ struct CandelaProfileView: View {
     @State private var showSwitchUsers = false
     @State private var editingIdentity = false
 
-    private var palette: CandelaPalette { CandelaPalette(dark: scheme == .dark) }
+    @Environment(\.appTheme) private var appTheme
+    private var palette: CandelaPalette { CandelaPalette(dark: appTheme.isDark) }
     private var playedGames: [GameInfo] {
         games.filter { store.sessions(for: $0) > 0 }
             .sorted { store.secondsPlayed(for: $0) > store.secondsPlayed(for: $1) }
