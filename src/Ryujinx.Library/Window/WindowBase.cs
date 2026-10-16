@@ -190,6 +190,8 @@ namespace Ryujinx.Library
             Renderer?.Window.SetMetalFxUpscaleFactor(MetalFxUpscaleFactor);
         }
 
+        private volatile string _gpuStage = "Not started";
+
         public void Render()
         {
             try
@@ -238,9 +240,9 @@ namespace Ryujinx.Library
                         break;
                     }
 
-                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU entering WaitFifo.");
+                    _gpuStage = "WaitFifo";
                     bool fifoReady = Device.WaitFifo();
-                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU returned from WaitFifo.");
+                    _gpuStage = "After WaitFifo";
 
                     if (_gpuCancellationTokenSource.IsCancellationRequested || _isStopped)
                     {
@@ -251,9 +253,9 @@ namespace Ryujinx.Library
                     if (fifoReady)
                     {
                         Device.Statistics.RecordFifoStart();
-                        Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU entering ProcessFrame.");
+                        _gpuStage = "ProcessFrame";
                         Device.ProcessFrame();
-                        Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU returned from ProcessFrame.");
+                        _gpuStage = "After ProcessFrame";
                         Device.Statistics.RecordFifoEnd();
                     }
 
@@ -262,9 +264,9 @@ namespace Ryujinx.Library
                         break;
                     }
 
-                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU entering PresentLoop.");
+                    _gpuStage = "PresentLoop";
                     bool framePresented = Device.PresentLoop(SwapBuffers);
-                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU returned from PresentLoop.");
+                    _gpuStage = "After PresentLoop";
                     if (framePresented)
                     {
                         if (!_ranFirstFrame)
@@ -302,9 +304,9 @@ namespace Ryujinx.Library
 
                 if (Device.Gpu.Renderer is ThreadedRenderer threaded)
                 {
-                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU entering FlushThreadedCommands.");
+                    _gpuStage = "FlushThreadedCommands";
                     threaded.FlushThreadedCommands();
-                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU returned from FlushThreadedCommands.");
+                    _gpuStage = "After FlushThreadedCommands";
                 }
 
             });
@@ -318,7 +320,7 @@ namespace Ryujinx.Library
                 }
                 finally
                 {
-                    Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown-trace] GPU signaling completion.");
+                    _gpuStage = "GPU completed";
                     _gpuDoneEvent.Set();
                 }
             }
@@ -340,7 +342,7 @@ namespace Ryujinx.Library
                 _isActive = false;
             }
 
-            Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] Stop requested; draining input and GPU loops.");
+            Logger.Notice.PrintMsg(LogClass.Application, $"[Candela][shutdown] Stop requested; GPU stage: {_gpuStage}. Draining input and GPU loops.");
             _gpuCancellationTokenSource.Cancel();
             _pauseEvent.Set();
             _inputUpdatedEvent.Set();
@@ -420,7 +422,7 @@ namespace Ryujinx.Library
             Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] Main loop exited; awaiting GPU worker.");
             if (!_gpuDoneEvent.WaitOne(TimeSpan.FromSeconds(8)))
             {
-                Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] GPU worker has not signaled completion after 8s; waiting safely.");
+                Logger.Notice.PrintMsg(LogClass.Application, $"[Candela][shutdown] GPU worker stalled after 8s at stage: {_gpuStage}; waiting safely.");
             }
             renderLoopThread.Join();
             Logger.Notice.PrintMsg(LogClass.Application, "[Candela][shutdown] GPU worker joined.");
