@@ -310,6 +310,7 @@ private struct CandelaMusicSelection: Identifiable {
 }
 
 struct CandelaMusicView: View {
+    @Environment(\.appTheme) private var appTheme
     @ObservedObject var music: CandelaMusic = .shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
@@ -319,7 +320,7 @@ struct CandelaMusicView: View {
     @State private var showPlayer = false
     @State private var selectedCollection: CandelaMusicSelection?
 
-    private var palette: CandelaPalette { CandelaPalette(dark: scheme == .dark) }
+    private var palette: CandelaPalette { CandelaPalette(dark: appTheme.isDark) }
 
     private var filteredPlaylists: [MPMediaPlaylist] {
         music.playlists.filter {
