@@ -366,6 +366,68 @@ private struct OdysseyGlassJoystickTarget: UIViewRepresentable {
     }
 }
 
+// Original vector artwork: resolution-independent, transparent, and bundled in code.
+private struct OdysseyNativeGlyph: View {
+    let kind: OdysseyGlassKey
+    let dimension: CGFloat
+
+    var body: some View {
+        ZStack {
+            switch kind {
+            case .throwHat, .capture:
+                ZStack {
+                    Ellipse()
+                        .fill(Color(red: 0.98, green: 0.30, blue: 0.34))
+                        .frame(width: dimension * 0.91, height: dimension * 0.26)
+                        .offset(y: dimension * 0.24)
+                    RoundedRectangle(cornerRadius: dimension * 0.24, style: .continuous)
+                        .fill(LinearGradient(colors: [Color(red: 1, green: 0.52, blue: 0.52), Color(red: 0.76, green: 0.12, blue: 0.23)], startPoint: .top, endPoint: .bottom))
+                        .frame(width: dimension * 0.65, height: dimension * 0.48)
+                        .offset(y: -dimension * 0.04)
+                    HStack(spacing: dimension * 0.07) {
+                        ForEach(0..<2, id: \.self) { _ in
+                            Ellipse().fill(.white)
+                                .frame(width: dimension * 0.14, height: dimension * 0.20)
+                                .overlay(alignment: .bottom) {
+                                    Circle().fill(Color(red: 0.19, green: 0.26, blue: 0.43))
+                                        .frame(width: dimension * 0.065)
+                                        .padding(.bottom, dimension * 0.025)
+                                }
+                        }
+                    }
+                    .offset(y: -dimension * 0.045)
+                    if kind == .capture {
+                        Image(systemName: "sparkle")
+                            .font(.system(size: dimension * 0.25, weight: .bold))
+                            .foregroundStyle(.yellow)
+                            .offset(x: dimension * 0.36, y: -dimension * 0.29)
+                    }
+                }
+            case .jump:
+                ZStack {
+                    Circle().fill(Color(red: 0.91, green: 0.19, blue: 0.27))
+                    Circle().strokeBorder(.white.opacity(0.8), lineWidth: dimension * 0.045)
+                    Text("M")
+                        .font(.system(size: dimension * 0.54, weight: .black, design: .rounded))
+                        .italic()
+                        .foregroundStyle(.white)
+                }
+            case .dive:
+                Image(systemName: "figure.run")
+                    .font(.system(size: dimension * 0.65, weight: .bold))
+                    .foregroundStyle(.white)
+                    .rotationEffect(.degrees(42))
+            default:
+                Image(systemName: kind.symbol)
+                    .font(.system(size: dimension * 0.60, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .frame(width: dimension, height: dimension)
+        .accessibilityHidden(true)
+    }
+}
+
 private struct OdysseyGlassArtwork: View {
     let kind: OdysseyGlassKey
     let size: CGSize
@@ -424,9 +486,13 @@ private struct OdysseyGlassArtwork: View {
                     .fill(glass)
                     .overlay(Circle().strokeBorder(.white.opacity(0.88), lineWidth: 2.2))
                 VStack(spacing: max(1, size.height * 0.035)) {
-                    Image(systemName: kind.symbol)
-                        .font(.system(size: kind.isUtility ? size.height * 0.38 : size.height * 0.29, weight: .bold))
-                        .symbolRenderingMode(.hierarchical)
+                    if kind == .throwHat || kind == .capture || kind == .jump || kind == .dive {
+                        OdysseyNativeGlyph(kind: kind, dimension: size.height * 0.48)
+                    } else {
+                        Image(systemName: kind.symbol)
+                            .font(.system(size: kind.isUtility ? size.height * 0.38 : size.height * 0.29, weight: .bold))
+                            .symbolRenderingMode(.hierarchical)
+                    }
                     if !kind.isUtility {
                         Text(kind.label)
                             .font(.system(size: max(7, size.height * 0.135), weight: .semibold, design: .rounded))
