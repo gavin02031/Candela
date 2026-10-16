@@ -9,7 +9,7 @@ extension SettingsView {
             CandelaSettingsDashboard(
                 config: config,
                 isJIT: ryujinxController.isJITEnabled,
-                destination: { AnyView($0.sectionsView(for: self)) }
+                destination: { AnyView($0.formView(for: self)) }
             )
             .navigationBarHidden(true)
         }
@@ -350,13 +350,11 @@ struct CandelaHubPage: View {
     let content: AnyView
 
     var body: some View {
-        // Parent settings expose bare Section builders. They must be hosted in
-        // Form or SwiftUI lays out controls as oversized, unstyled stacks.
-        Form {
-            content
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
+        // Use the exact Forms from SettingsView (Graphics, Input, Misc,
+        // System and Advanced), rather than raw Sections inside an AnyView.
+        // This restores stock grouping, row sizing and picker behavior.
+        content
+        .modifier(HiddenScrollBackground())
         .background(CandelaBackdrop(dark: scheme == .dark).ignoresSafeArea())
         .fontDesign(.rounded)
         .tint(CandelaPalette(dark: scheme == .dark).rose)
