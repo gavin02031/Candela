@@ -98,6 +98,9 @@ struct EmulationView: View {
                     if phase == .active { libraryStats.resumeSession() }
                     else { libraryStats.pauseSession() }
                 }
+                .onChange(of: ryujinxController.isStopping) { _, stopping in
+                    if stopping { libraryStats.pauseSession() }
+                }
                 .if(!statisticsHandler.started) { view in
                     view
                         .overlay {
