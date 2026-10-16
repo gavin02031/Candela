@@ -1,4 +1,5 @@
 name: Build unsigned iOS IPA
+# Validate monotonic foreground playtime accounting and shutdown flush.
 # Validate profile-scoped achievements and in-game toast queue; build steps unchanged.
 # Trigger corrected Music V2 plus integrated Candela theme presets; build steps unchanged.
 # Validate race-free Leave Game native shutdown and Swift cleanup indicator; steps unchanged.
