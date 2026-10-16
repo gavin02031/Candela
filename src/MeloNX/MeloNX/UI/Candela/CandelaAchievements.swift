@@ -185,39 +185,102 @@ final class CandelaAchievements: ObservableObject {
     static let shared = CandelaAchievements()
     @Published private(set) var unlocked: Set<String> = []
     @Published private(set) var recentUnlock: CandelaAchievement?
-    private let storageKey = "candela.achievements.unlocked.v1"
+    private let storagePrefix = "candela.achievements.unlocked.v2."
+    private var activeProfile = "default"
+    private var activeGame = ""
+    private var pending: [CandelaAchievement] = []
+    private var toastGeneration = 0
 
-    private init() {
-        unlocked = Set(UserDefaults.standard.stringArray(forKey: storageKey) ?? [])
+    private init() {}
+
+    private func selectedProfileID() -> String {
+        let url = URL.documentsDirectory
+            .appendingPathComponent("system")
+            .appendingPathComponent("Profiles.json")
+        guard let data = try? Data(contentsOf: url),
+              let profiles = try? JSONDecoder().decode(Profiles.self, from: data) else {
+            return "default"
+        }
+        return profiles.last_opened
     }
 
-    func unlock(_ achievement: CandelaAchievement) {
-        guard !unlocked.contains(achievement.id) else { return }
+    private func storageKey(gameID: String) -> String {
+        storagePrefix + activeProfile + "." + gameID
+    }
+
+    func beginSession(gameID: String) {
+        activeProfile = selectedProfileID()
+        activeGame = gameID
+        unlocked = Set(UserDefaults.standard.stringArray(forKey: storageKey(gameID: gameID)) ?? [])
+        pending.removeAll()
+        recentUnlock = nil
+        toastGeneration += 1
+    }
+
+    func endSession() {
+        activeGame = ""
+        pending.removeAll()
+        recentUnlock = nil
+        toastGeneration += 1
+    }
+
+    func unlock(_ achievement: CandelaAchievement, gameID: String) {
+        guard activeGame == gameID,
+              !unlocked.contains(achievement.id),
+              !pending.contains(where: { $0.id == achievement.id }) else { return }
         unlocked.insert(achievement.id)
-        UserDefaults.standard.set(Array(unlocked).sorted(), forKey: storageKey)
-        recentUnlock = achievement
+        UserDefaults.standard.set(Array(unlocked).sorted(), forKey: storageKey(gameID: gameID))
+        pending.append(achievement)
+        presentNext()
     }
 
-    /// Only a verified Tomodachi save/memory adapter may call this.
-    /// This deliberately does not unlock from game launch, playtime or tapping a button.
-    func reportVerifiedTomodachiResidentCount(previous: Int, current: Int) {
+    private func presentNext() {
+        guard recentUnlock == nil, !pending.isEmpty else { return }
+        recentUnlock = pending.removeFirst()
+        toastGeneration += 1
+        let generation = toastGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) { [weak self] in
+            guard let self, self.toastGeneration == generation else { return }
+            self.recentUnlock = nil
+            self.presentNext()
+        }
+    }
+
+    /// Game-specific adapters report verified game-state transitions only.
+    func reportVerifiedTomodachiResidentCount(previous: Int, current: Int, gameID: String) {
         guard previous == 0, current >= 1,
               let firstMii = CandelaAchievementCatalogue.tomodachi.first else { return }
-        unlock(firstMii)
+        unlock(firstMii, gameID: gameID)
     }
 
-    func dismissToast() { recentUnlock = nil }
+    func reportVerifiedOdysseyMoonCount(previous: Int, current: Int, gameID: String) {
+        guard previous == 0, current >= 1,
+              let firstMoon = CandelaAchievementCatalogue.odyssey.first(where: { $0.id == "odyssey.05" }) else { return }
+        unlock(firstMoon, gameID: gameID)
+    }
+
+    func unlockedIDs(gameID: String) -> Set<String> {
+        let profile = selectedProfileID()
+        return Set(UserDefaults.standard.stringArray(forKey: storagePrefix + profile + "." + gameID) ?? [])
+    }
+
+    func dismissToast() {
+        toastGeneration += 1
+        recentUnlock = nil
+        presentNext()
+    }
 }
 
 struct CandelaAchievementsPage: View {
     let gameName: String
+    let gameID: String
     @ObservedObject private var progress = CandelaAchievements.shared
     @Environment(\.colorScheme) private var scheme
     private var achievements: [CandelaAchievement] { CandelaAchievementCatalogue.forGame(gameName) }
 
     var body: some View {
         let palette = CandelaPalette(dark: scheme == .dark)
-        let count = achievements.filter { progress.unlocked.contains($0.id) }.count
+        let count = achievements.filter { progress.unlockedIDs(gameID: gameID).contains($0.id) }.count
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Achievements")
@@ -238,7 +301,7 @@ struct CandelaAchievementsPage: View {
                         .foregroundColor(palette.inkSoft)
                 }
                 ForEach(achievements) { achievement in
-                    let earned = progress.unlocked.contains(achievement.id)
+                    let earned = progress.unlockedIDs(gameID: gameID).contains(achievement.id)
                     HStack(spacing: 12) {
                         Image(systemName: earned ? "rosette" : "lock.fill")
                             .font(.system(size: 22))
