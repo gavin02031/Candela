@@ -120,6 +120,15 @@ struct CandelaJITSettingsView: View {
         }
     }
 
+    /// Adds the fix to the helper's raw reachability errors. A timeout to 10.7.0.1 means the
+    /// LocalDevVPN tunnel was down, so say what to do instead of only showing the address.
+    private static func friendlyStatus(_ message: String) -> String {
+        if message.localizedCaseInsensitiveContains("timed out connecting") || message.contains("10.7.0.1") {
+            return message + " LocalDevVPN does not seem to be connected. Open LocalDevVPN, tap Connect, then come back and try again."
+        }
+        return message
+    }
+
     private func run(_ op: CandelaJITRequest.Operation) {
         guard let pairing = CandelaPairingStore.load() else { return }
         busy = true; status = "Working..."
@@ -128,7 +137,7 @@ struct CandelaJITSettingsView: View {
         CandelaBuiltInJIT.send(request) { result in
             busy = false
             switch result {
-            case .success(let r): status = r.message
+            case .success(let r): status = Self.friendlyStatus(r.message)
             case .failure(let e): status = e.localizedDescription + " [\((e as NSError).domain) \((e as NSError).code)]"
             }
             CandelaJITDiagnostics.lastResult = status
