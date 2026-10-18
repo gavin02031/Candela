@@ -30,6 +30,8 @@ var environment: [EnvironmentVariable] = [
     //EnvironmentVariable(string: "MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS", value: "0"),
     EnvironmentVariable(string: "MVK_CONFIG_MAX_ACTIVE_METAL_COMMAND_BUFFERS_PER_QUEUE", value: "32"),
    //  EnvironmentVariable(string: "MVK_CONFIG_SHADER_COMPRESSION_ALGORITHM", value: "1"),
+    // Diagnostic build only: fog point-draw probe. Remove after the fog log run.
+    EnvironmentVariable(string: "CANDELA_GPU_PROBES", value: "1"),
 ]
 
 func initEnvironmentVariables() {
