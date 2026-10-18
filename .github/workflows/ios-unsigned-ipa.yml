@@ -1,4 +1,5 @@
 name: Build unsigned iOS IPA
+# Build: fog point-draw probe plus LocalDevVPN hint diagnostic; probe gated by env, JIT message map only.
 # Validate native shutdown GPU drain diagnostics and stalled-cleanup UI.
 # Rebuild after Combine import fix and native touch artwork changes.
 # Validate low-overhead GPU shutdown stage tracing on device.
