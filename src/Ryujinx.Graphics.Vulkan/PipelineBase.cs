@@ -44,6 +44,12 @@ namespace Ryujinx.Graphics.Vulkan
         private bool _bindingBarriersDirty;
         private PrimitiveTopology _topology;
 
+        // Guest point state. The Vulkan backend does not apply it (see SetPointParameters);
+        // it is captured so the point-draw probe can report what the guest asked for.
+        private float _guestPointSize = 1f;
+        private bool _guestProgramPointSize;
+        private bool _guestPointSpriteEnable;
+
         private ulong _currentPipelineHandle;
 
         protected Auto<DisposablePipeline> Pipeline;
@@ -318,12 +324,33 @@ namespace Ryujinx.Graphics.Vulkan
             Gd.Api.CmdDispatchIndirect(CommandBuffer, indirectBuffer.Get(Cbs, indirectBufferOffset, 12).Value, (ulong)indirectBufferOffset);
         }
 
+        /// <summary>
+        /// Log-only probe for point-list draws. Odyssey's fog splats are point sprites drawn
+        /// into small (256x256/128x128) RG16F fields, so the framebuffer size identifies them.
+        /// Costs nothing unless CANDELA_GPU_PROBES=1 and the draw is a point list.
+        /// </summary>
+        private void ProbePointDraw(int count, int instanceCount)
+        {
+            if (!CandelaProbe.Enabled || _topology != PrimitiveTopology.Points)
+            {
+                return;
+            }
+
+            int width = FramebufferParams?.Width ?? 0;
+            int height = FramebufferParams?.Height ?? 0;
+            CandelaProbe.Note(
+                $"point-draw {width}x{height}",
+                $"count={count} instances={instanceCount} programPointSize={(_guestProgramPointSize ? 1 : 0)} fixedSize={_guestPointSize:F1} sprite={(_guestPointSpriteEnable ? 1 : 0)}");
+        }
+
         public void Draw(int vertexCount, int instanceCount, int firstVertex, int firstInstance)
         {
             if (vertexCount == 0)
             {
                 return;
             }
+
+            ProbePointDraw(vertexCount, instanceCount);
 
             if (!RecreateGraphicsPipelineIfNeeded())
             {
@@ -388,6 +415,7 @@ namespace Ryujinx.Graphics.Vulkan
 
         public void DrawIndexed(int indexCount, int instanceCount, int firstIndex, int firstVertex, int firstInstance)
         {
+            ProbePointDraw(indexCount, instanceCount);
             if (indexCount == 0)
             {
                 return;
@@ -919,7 +947,10 @@ namespace Ryujinx.Graphics.Vulkan
 
         public void SetPointParameters(float size, bool isProgramPointSize, bool enablePointSprite, Origin origin)
         {
-            // TODO.
+            // TODO. Values are captured for the point-draw probe only; rendering behavior is unchanged.
+            _guestPointSize = size;
+            _guestProgramPointSize = isProgramPointSize;
+            _guestPointSpriteEnable = enablePointSprite;
         }
 
         public void SetPolygonMode(PolygonMode frontMode, PolygonMode backMode)
