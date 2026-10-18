@@ -820,6 +820,11 @@ namespace Ryujinx.Graphics.Vulkan
             Api.GetPhysicalDeviceFeatures2(_physicalDevice.PhysicalDevice, &features2);
 
             PhysicalDeviceLimits limits = _physicalDevice.PhysicalDeviceProperties.Limits;
+
+            if (CandelaProbe.Enabled)
+            {
+                CandelaProbe.Note("point-size-range", $"{limits.PointSizeRange[0]:F0}..{limits.PointSizeRange[1]:F0}");
+            }
             QueueFamilyProperties mainQueueProperties = _physicalDevice.QueueFamilyProperties[QueueFamilyIndex];
 
             SystemMemoryType memoryType;
