@@ -336,8 +336,8 @@ namespace Ryujinx.Graphics.Vulkan
                 return;
             }
 
-            int width = FramebufferParams?.Width ?? 0;
-            int height = FramebufferParams?.Height ?? 0;
+            uint width = FramebufferParams?.Width ?? 0;
+            uint height = FramebufferParams?.Height ?? 0;
             CandelaProbe.Note(
                 $"point-draw {width}x{height}",
                 $"count={count} instances={instanceCount} programPointSize={(_guestProgramPointSize ? 1 : 0)} fixedSize={_guestPointSize:F1} sprite={(_guestPointSpriteEnable ? 1 : 0)}");
